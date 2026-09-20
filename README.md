@@ -8,8 +8,9 @@ world, walk a map of four career chapters, and read each one as a sequence of
 story beats.
 
 Every backdrop is painted on canvas from code — there are no illustration
-assets. The ambience loops are synthesised the same way, which is also how the
-licensing question stays settled.
+assets. The music is written the same way: `tool/generate_ambience.py`
+synthesises a scored waltz for piano, strings and flute, one arrangement per
+lighting state. Nothing is sampled, so the licensing question stays settled.
 
 ## The journey
 
@@ -62,6 +63,11 @@ A few decisions worth knowing before you read the code:
   anyway, so silence is both the polite default and the only one that works.
   `Ambience` decides what *should* play; `AmbiencePlayer` does the playing, so
   everything can be tested without an audio backend.
+- **The score follows the light, not the route.** One piece of music in F
+  major is re-orchestrated per lighting state, so walking from the valley into
+  the workshop is a change of scoring rather than a change of soundtrack.
+  `LoopingAmbiencePlayer` holds two decks and cross-fades between them, which
+  is what keeps a scene change from cutting a melody off mid-phrase.
 
 ### The secret layer
 
@@ -99,8 +105,10 @@ gitignored.
 are authoring aids, not part of the app, and need `opencv-python` and `numpy`:
 
 - `generate_ambience.py` — synthesises the five seamless ambience loops into
-  `assets/audio/`. Loops are seamless by construction rather than by
-  cross-fading.
+  `assets/audio/`. Each is a bed (wind, birds, room tone) under a score
+  (waltz, strings, melody), written as chord progressions and note lists at the
+  bottom of the file. Loops are seamless by construction rather than by
+  cross-fading. Needs `soundfile` as well as `numpy`.
 - `chrome_shots.py` — serves `build/web` and drives real headless Chrome over
   the twelve routes into `build/chrome/`. `flutter test` renders goldens in the
   headless Skia tester, which cannot see browser-only problems: web font

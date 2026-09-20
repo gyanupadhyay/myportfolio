@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:myportfolio/components/panels.dart';
 import 'package:myportfolio/data/chapters/fyers.dart';
 import 'package:myportfolio/scenes/arrival/arrival_scene.dart';
 import 'package:myportfolio/scenes/chapter/chapter_scene.dart';
@@ -168,6 +169,27 @@ void main() {
     await pumpAt(tester, size, sceneFor('journey'));
     expect(find.text('The stops'), findsOneWidget);
   });
+
+  // The observatory's system card is taller than the frame it was composed
+  // for, and its tail used to be unreachable: the card was pinned to 430 units
+  // with the diagram scrolling inside it. The copy band scrolls now.
+  for (final size in const [Size(1440, 861), Size(1366, 700)]) {
+    testWidgets('laptop ${size.height.round()}: the end of the system card can '
+        'be scrolled into view', (tester) async {
+      await pumpAt(tester, size, sceneFor('observatory'));
+
+      // The last step of the release pipeline, below the fold on arrival.
+      final tail = find.text('Over the air');
+      expect(tester.getRect(tail).bottom, greaterThan(size.height),
+          reason: 'nothing to scroll to — rewrite this test');
+
+      await tester.drag(find.byType(GlassPanel).first, const Offset(0, -400));
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expectOnScreen(tester, tail, size);
+    });
+  }
 
   testWidgets('phone: the chapter can still be advanced', (tester) async {
     const size = Size(390, 844);

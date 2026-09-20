@@ -158,7 +158,7 @@ class _ChapterSceneState extends State<ChapterScene> {
               beatCount: chapter.beatCount,
               beatLabels: chapter.beatLabels,
               title: chapter.title,
-              credibility: chapter.credibility.label,
+              credibility: chapter.credibility,
               onBack: () => widget.onNavigate('/map'),
               onSelect: (i) => setState(() => _beat = i),
               onStep: _go,
@@ -188,7 +188,7 @@ class _ChapterChrome extends StatelessWidget {
   final int beatCount;
   final List<String> beatLabels;
   final String title;
-  final String credibility;
+  final Credibility credibility;
   final VoidCallback onBack;
   final ValueChanged<int> onSelect;
   final ValueChanged<int> onStep;
@@ -1876,8 +1876,17 @@ class _ChapterBadge extends StatelessWidget {
   });
 
   final String title;
-  final String credibility;
+  final Credibility credibility;
   final VoidCallback onBack;
+
+  /// Fill and border for the kind badge, so a degree is never tinted like a
+  /// job.
+  (Color, Color) get _tint => switch (credibility) {
+        Credibility.professional => (T.success, T.successGlow),
+        Credibility.education => (T.lampGlow, T.lampGlow),
+        Credibility.personalProject => (T.metricBlue, T.metricBlue),
+        Credibility.exploration => (T.lampGlow, T.lampGlow),
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -1912,12 +1921,12 @@ class _ChapterBadge extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: T.s8, vertical: 3),
           decoration: BoxDecoration(
-            color: T.success.withValues(alpha: 0.22),
+            color: _tint.$1.withValues(alpha: 0.22),
             borderRadius: BorderRadius.circular(T.rPill),
-            border: Border.all(color: T.successGlow.withValues(alpha: 0.7)),
+            border: Border.all(color: _tint.$2.withValues(alpha: 0.7)),
           ),
           child: Text(
-            credibility,
+            credibility.label,
             style: Type.labelSm.copyWith(color: Colors.white, fontSize: 18),
           ),
         ),

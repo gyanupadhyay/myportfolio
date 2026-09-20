@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 /// Every chapter and experiment carries one, and it renders as a visible badge.
 enum Credibility {
   professional('Professional experience'),
+  education('Education'),
   personalProject('Personal project'),
   exploration('Exploration / learning');
 

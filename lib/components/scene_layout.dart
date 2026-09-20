@@ -1,9 +1,75 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../app/theme/lighting.dart';
 import '../app/theme/tokens.dart';
 import '../app/theme/typography.dart';
 import '../world/stage.dart';
+
+/// The first copy slot's band: it scrolls when the block is taller than the
+/// viewport, and stays out of the way when it is not.
+///
+/// A viewport fills its band whether or not the copy does, and an opaque one
+/// would eat every click on the art behind the empty half of it — the journey
+/// map's stops sit under exactly that. A translucent one lets those clicks
+/// through and still takes a drag anywhere in the band, but it also drops the
+/// wheel, which a parent only sees when the child claims the pointer. So the
+/// wheel is picked up here instead, through the resolver: over the copy the
+/// scroll view registers first and this handler is dropped, and over the empty
+/// part of the band nothing else claims it, so the page still moves.
+class _ScrollBand extends StatefulWidget {
+  const _ScrollBand({
+    required this.alignment,
+    required this.padding,
+    required this.child,
+  });
+
+  final Alignment alignment;
+  final EdgeInsets padding;
+  final Widget child;
+
+  @override
+  State<_ScrollBand> createState() => _ScrollBandState();
+}
+
+class _ScrollBandState extends State<_ScrollBand> {
+  final _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _wheel(PointerEvent event) {
+    if (event is! PointerScrollEvent || !_controller.hasClients) return;
+    final position = _controller.position;
+    final target = (position.pixels + event.scrollDelta.dy)
+        .clamp(0.0, position.maxScrollExtent);
+    if (target != position.pixels) position.jumpTo(target);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerSignal: (event) {
+        if (event is PointerScrollEvent) {
+          GestureBinding.instance.pointerSignalResolver.register(event, _wheel);
+        }
+      },
+      child: Align(
+        alignment: widget.alignment,
+        child: SingleChildScrollView(
+          controller: _controller,
+          hitTestBehavior: HitTestBehavior.translucent,
+          padding: widget.padding,
+          child: widget.child,
+        ),
+      ),
+    );
+  }
+}
 
 /// Where a scene's main copy sits, and how it behaves when the viewport is too
 /// narrow to hold it where the reference frame put it.
@@ -124,21 +190,11 @@ class SceneUi extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // Only the first slot is re-centred: the rest are anchored relative to
+        // Only the first slot is re-flowed: the rest are anchored relative to
         // it in the composition, so moving them independently would break it.
         for (final (i, slot) in copy.indexed)
-          if (centreCopy && i == 0)
-            Positioned(
-              left: slot.left ?? gutter.left,
-              right: slot.left == null && slot.right != null ? slot.right : null,
-              width: slot.width,
-              top: gutter.top + SceneUi.topBarHeight(stage.form),
-              bottom: gutter.bottom,
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: SingleChildScrollView(child: slot.child),
-              ),
-            )
+          if (i == 0)
+            _scrollingBand(slot, stage, gutter, centreCopy: centreCopy)
           else
             Positioned(
               left: slot.left,
@@ -173,6 +229,47 @@ class SceneUi extends StatelessWidget {
             child: trail,
           ),
       ],
+    );
+  }
+
+  /// How far the band reaches past the block, so a panel's drop shadow — 28
+  /// units of blur, thrown 10 down — is not shaved off by the scroll
+  /// viewport's clip. The child is padded to match, so the copy still lands
+  /// exactly where it was composed. The top is tightest: every unit of it is
+  /// a unit of scrolled copy left showing above the composition.
+  static const _bleed = EdgeInsets.fromLTRB(40, 32, 40, 48);
+
+  /// The first copy slot, as a band that scrolls when the block is taller than
+  /// the viewport.
+  ///
+  /// A laptop screen is shorter than the 861-unit frame these scenes were
+  /// composed at, so the tail of a long block — the observatory's system card —
+  /// used to sit under the fold with no way to reach it. The band runs to the
+  /// bottom edge rather than the bottom gutter, because composed blocks lean
+  /// into that margin and cutting there would hide copy that used to show.
+  Widget _scrollingBand(
+    CopySlot slot,
+    StageState stage,
+    EdgeInsets gutter, {
+    required bool centreCopy,
+  }) {
+    final left = slot.left ?? (slot.right != null ? null : gutter.left);
+    final right = left == null ? slot.right : null;
+    final top = centreCopy
+        ? gutter.top + SceneUi.topBarHeight(stage.form)
+        : slot.top;
+
+    return Positioned(
+      left: left == null ? null : left - _bleed.left,
+      right: right == null ? null : right - _bleed.right,
+      width: slot.width == null ? null : slot.width! + _bleed.horizontal,
+      top: top == null ? null : top - _bleed.top,
+      bottom: centreCopy ? gutter.bottom : 0,
+      child: _ScrollBand(
+        alignment: centreCopy ? Alignment.centerLeft : Alignment.topLeft,
+        padding: _bleed.copyWith(bottom: 0),
+        child: slot.child,
+      ),
     );
   }
 

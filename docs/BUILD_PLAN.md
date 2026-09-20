@@ -401,19 +401,45 @@ writes five seamless OGG Vorbis loops into `assets/audio`, one per lighting
 state. Nothing is taken from a recording, so there is no licence question on a
 site you will send to employers, and regenerating is deterministic.
 
-Each loop is seamless by construction rather than by cross-fading: tonal layers
-use whole numbers of cycles per loop, noise layers are built in the frequency
-domain (so they are inherently periodic), and one-shot events wrap around the
-seam. The generator prints a seam measurement — the wrap compared to an
-ordinary sample-to-sample step — and every loop comes in well under 1.0, so
-there is no click.
+Each loop is two layers: a **bed** (wind, birds, crickets, room tone) and a
+**score**. The score is one piece of music — a slow waltz in F major, 75 bpm,
+twelve bars — re-orchestrated per lighting state rather than rewritten:
 
-Total 202 KB for all five. Ambience is off by default and the assets are only
-fetched when a visitor switches it on, so it costs nothing on first load.
-Playback fades in and out rather than cutting, and a blocked autoplay policy
-degrades to silence instead of an error.
+| Loop | Scoring |
+|---|---|
+| `valley-day` | Piano waltz, strings, wooden flute on the melody |
+| `valley-dusk` | The same theme in D minor; piano down to the bass note, cello under it |
+| `valley-sunset` | Strings two bars at a time, single piano notes left to ring |
+| `room-night` | Music box and a quiet string pad, with a lot of silence |
+| `room-interior` | Marimba — wood, because everything in that room is |
 
-To change the sound, edit the layer functions in the generator and re-run it.
+The instruments are synthesised from their physics rather than sampled: the
+piano's partials are stretched by string stiffness and its highs decay faster
+than its lows, the marimba's overtones sit near the fourth and ninth harmonics,
+the music box is deliberately out of tune with itself above the fundamental.
+Melodies are written in the same octave as the harmony, then lifted an octave
+clear of it, and every note is nudged off the grid and off its printed dynamic
+by a fixed amount, so the result is played rather than triggered.
+
+Loops are seamless by construction rather than by cross-fading: noise layers
+are built in the frequency domain (so they are inherently periodic), drones use
+whole numbers of cycles per loop, and every note and one-shot event is placed
+with wraparound — a piano note struck in the last bar rings on across the seam
+into the first. The generator prints a seam measurement: the wrap compared to
+the largest ordinary step in the few milliseconds *around* it, since the seam
+can land inside a mallet strike where every step is large. All five come in
+under 1.0, so the wrap is indistinguishable from its own neighbourhood.
+
+101–175 KB per loop, 679 KB for all five. Ambience is off by default and only
+the current scene's loop is ever fetched, and only once a visitor switches it
+on, so it costs nothing on first load. `LoopingAmbiencePlayer` holds two decks
+and cross-fades between them on an equal-power curve — with a melody playing,
+cutting one loop off to start another is the thing that would make it sound
+like a website. A blocked autoplay policy degrades to silence, not an error.
+
+To change the music, edit the chord progressions and note lists at the bottom
+of the generator and re-run it; to change the instruments, edit the voice
+functions above them.
 
 ### Known gaps
 
@@ -426,6 +452,7 @@ To change the sound, edit the layer functions in the generator and re-run it.
 - The mockups show a 3.2 s → 2.5 s startup and a per-stage timeline. Neither
   is on the résumé, so the chapter shows the 700 ms delta instead.
 - No Rive character; the walk cycle is procedural.
-- The ambience is synthesised, so it is atmospheric rather than a field
-  recording. If you want real recordings later, they need a licence that
-  permits redistribution.
+- The ambience is synthesised, so both the instruments and the weather are
+  models rather than recordings — close enough to read as piano, flute and
+  marimba, not close enough to pass for them. Real recordings would need a
+  licence that permits redistribution.

@@ -121,26 +121,17 @@ class _ObservatorySceneState extends State<ObservatoryScene> {
                   Reveal(
                     key: ValueKey(item.id),
                     delay: const Duration(milliseconds: 120),
-                    child: compact
-                        ? _SystemPanel(
-                            item: item,
-                            deep: _deep,
-                            compact: true,
-                            onToggleDeep: () => setState(() => _deep = !_deep),
-                            onOpenLink: widget.onOpenLink,
-                          )
-                        : SizedBox(
-                            height: 430,
-                            child: _SystemPanel(
-                              item: item,
-                              deep: _deep,
-                              compact: false,
-                              onToggleDeep: () =>
-                                  setState(() => _deep = !_deep),
-                              onOpenLink: widget.onOpenLink,
-                            ),
-                          ),
+                    child: _SystemPanel(
+                      item: item,
+                      deep: _deep,
+                      compact: compact,
+                      onToggleDeep: () => setState(() => _deep = !_deep),
+                      onOpenLink: widget.onOpenLink,
+                    ),
                   ),
+                  // Room to scroll the card's last line clear of the floating
+                  // 'human layer' button in the bottom corner.
+                  const SizedBox(height: 96),
                 ],
               );
             },
@@ -283,6 +274,7 @@ class _CredibilityBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = switch (credibility) {
       Credibility.professional => T.success,
+      Credibility.education => T.lampGlow,
       Credibility.personalProject => T.metricBlue,
       Credibility.exploration => T.lampGlow,
     };
@@ -369,9 +361,11 @@ class _Back extends StatelessWidget {
 
 /// The selected system's card.
 ///
-/// On a phone the flow diagram and the notes beside it cannot share a row, so
-/// they stack and the card grows with its content instead of being pinned to
-/// the reference's 430-unit height.
+/// It grows with its content at every size: the reference frame pinned it to
+/// 430 units and scrolled the flow and the notes inside their own columns,
+/// which hid a third of the diagram behind a gesture nobody would guess at.
+/// The page band scrolls instead. On a phone the flow diagram and the notes
+/// beside it cannot share a row, so they stack.
 class _SystemPanel extends StatelessWidget {
   const _SystemPanel({
     required this.item,
@@ -507,15 +501,13 @@ class _SystemPanel extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 header,
-                Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SingleChildScrollView(child: _flow()),
-                      const SizedBox(width: T.s32),
-                      Expanded(child: SingleChildScrollView(child: _notes())),
-                    ],
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _flow(),
+                    const SizedBox(width: T.s32),
+                    Expanded(child: _notes()),
+                  ],
                 ),
               ],
             ),

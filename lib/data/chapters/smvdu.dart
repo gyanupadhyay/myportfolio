@@ -8,7 +8,7 @@ const smvduChapter = Chapter(
   title: 'SMVDU',
   subtitle: 'The Beginning',
   period: 'Chapter 1',
-  credibility: Credibility.professional,
+  credibility: Credibility.education,
   nextChapterId: 'partyhunt',
   nextChapterLabel: 'PartyHunt',
   accentColor: 0xFF6E8C6A,

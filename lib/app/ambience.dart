@@ -63,7 +63,7 @@ class Ambience extends ChangeNotifier {
 
   @override
   void dispose() {
-    _player.stop();
+    _player.dispose();
     super.dispose();
   }
 }
@@ -73,6 +73,10 @@ class Ambience extends ChangeNotifier {
 abstract interface class AmbiencePlayer {
   void play(String track);
   void stop();
+
+  /// Releases whatever the implementation is holding. The controller is owned
+  /// by the app shell, so without this the audio backend outlives it.
+  void dispose();
 }
 
 /// Does nothing, and says so. The toggle still works, the state is still
@@ -90,18 +94,25 @@ class SilentPlayer implements AmbiencePlayer {
 
   @override
   void stop() {}
+
+  @override
+  void dispose() {}
 }
 
 /// Records what was asked of it — used by the tests.
 class RecordingPlayer implements AmbiencePlayer {
   final List<String> played = [];
   int stops = 0;
+  bool disposed = false;
 
   @override
   void play(String track) => played.add(track);
 
   @override
   void stop() => stops++;
+
+  @override
+  void dispose() => disposed = true;
 }
 
 /// Makes the ambience controller available to scenes and to the nav toggle.
