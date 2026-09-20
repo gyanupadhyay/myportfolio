@@ -1,5 +1,7 @@
 # The Interactive Engineering Story
 
+**Live: https://gyanupadhyay.github.io/myportfolio/**
+
 Gyan Upadhyay's portfolio, built as a Flutter Web app. Instead of a resume
 page with sections, it's a single continuous journey: you arrive in a drawn
 world, walk a map of four career chapters, and read each one as a sequence of
@@ -113,11 +115,12 @@ reference frames were built against.
 and builds the web release on every push, then publishes `main`/`master` to
 GitHub Pages with the repository name as the base href.
 
-> **Pages is not enabled on this repository.** The `verify` job passes; the
-> `deploy` job fails with a 404 until Pages is turned on with source *GitHub
-> Actions* at [Settings → Pages](../../settings/pages). Note that Pages from a
-> **private** repository requires GitHub Pro, Team or Enterprise — on a free
-> account the repo has to be public for the site to publish.
+The site is live at **https://gyanupadhyay.github.io/myportfolio/**.
+
+Pages is configured with source *GitHub Actions*, so the artifact the `verify`
+job uploads is what gets published — there is no `gh-pages` branch. The
+`deploy` job only runs on `main`/`master`; pull requests build and test but do
+not publish.
 
 ## Contact
 
