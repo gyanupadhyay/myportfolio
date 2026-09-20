@@ -163,6 +163,24 @@ def wipe(img, rects):
     return (img * (1 - mask) + soft * mask).astype(np.uint8)
 
 
+def base_colours(img):
+    """The plate's top and bottom bands, averaged, as Dart colour literals.
+
+    A plate is a third of a megabyte and decodes after the first frame, so a
+    scene that hangs one opens on white and then snaps to a painting. These
+    two colours are painted immediately instead, as a gradient: the sky the
+    plate starts in and the ground it ends in, which is a plausible-enough
+    version of the frame to arrive on.
+    """
+    h = img.shape[0]
+    bands = (img[:int(h * 0.18)], img[int(h * 0.82):])
+    return tuple(
+        '0xFF{:02X}{:02X}{:02X}'.format(
+            *(int(round(c)) for c in band.reshape(-1, 3).mean(axis=0)[::-1]))
+        for band in bands
+    )
+
+
 def pad(img, aspect=TARGET_ASPECT):
     """Grow a plate to [aspect] by continuing its top and bottom edges.
 
@@ -348,7 +366,8 @@ def main():
             total += night_size
 
         h, w = img.shape[:2]
-        made.append((name, w, h, top, has_night))
+        sky, ground = base_colours(img)
+        made.append((name, w, h, top, has_night, sky, ground))
         night_note = f' + {night_size / 1024:.1f} KB night' if has_night else ''
         print(f'{name:18} {w:>5}x{h:<5} pad top {top:>4}  {size / 1024:8.1f} KB{night_note}')
     print(f'{"total":18} {"":22} {total / 1024:8.1f} KB')
@@ -374,11 +393,18 @@ def write_dart(made):
         "/// painting's own coordinates and shifted by [origin].",
         '@immutable',
         'class PlateArt {',
-        '  const PlateArt(this.asset, this.size, this.origin, {this.night});',
+        '  const PlateArt(this.asset, this.size, this.origin, this.sky,',
+        '      this.ground, {this.night});',
         '',
         '  final String asset;',
         '  final Size size;',
         '  final Offset origin;',
+        '',
+        "  /// The average of the plate's top and bottom bands, painted as a",
+        '  /// gradient until the file has decoded. Without it the scene opens',
+        '  /// on white and then snaps to a painting.',
+        '  final Color sky;',
+        '  final Color ground;',
         '',
         '  /// The moonlit bake of the same painting, where one exists.',
         '  ///',
@@ -389,13 +415,14 @@ def write_dart(made):
         '}',
         '',
     ]
-    for name, w, h, top, has_night in made:
+    for name, w, h, top, has_night, sky, ground in made:
         ident = ''.join(p.capitalize() for p in name.split('_'))
-        dark = f", night: 'assets/art/{name}_night.webp'" if has_night else ''
+        dark = (f", night: 'assets/art/{name}_night.webp'"
+                if has_night else '')
         lines.append(
-            f"const plate{ident} = PlateArt('assets/art/{name}.webp', "
-            f'Size({w}, {h}), Offset(0, {top}){dark});'
-        )
+            f"const plate{ident} = PlateArt('assets/art/{name}.webp',")
+        lines.append(f'    Size({w}, {h}), Offset(0, {top}),')
+        lines.append(f'    Color({sky}), Color({ground}){dark});')
     with open('lib/world/plates.g.dart', 'w', encoding='utf-8') as f:
         f.write(chr(10).join(lines) + chr(10))
     print('wrote lib/world/plates.g.dart')

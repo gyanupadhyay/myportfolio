@@ -109,7 +109,29 @@ class ScenePlate extends StatelessWidget {
         height: art.size.height,
         fit: BoxFit.fill,
         filterQuality: FilterQuality.medium,
+        // A third of a megabyte decodes a frame or two after the scene is
+        // built, so without this the plate lands in one hard cut over the
+        // placeholder. Already-decoded frames — anything the image cache
+        // hands back, which is every revisit — skip the fade.
+        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+          if (wasSynchronouslyLoaded) return child;
+          return AnimatedOpacity(
+            opacity: frame == null ? 0 : 1,
+            duration: const Duration(milliseconds: 420),
+            curve: Curves.easeOut,
+            child: child,
+          );
+        },
       );
+
+  /// The colour the scene opens on, before the plate has decoded.
+  ///
+  /// Darkened when the visitor arrives with night already chosen: the bands
+  /// are sampled from the daylit plate, and a sunlit sky flashing up in front
+  /// of a moonlit painting is worse than the white it replaces.
+  Color _base(Color sampled, bool night) => night
+      ? Color.lerp(sampled, const Color(0xFF0B1220), 0.62)!
+      : sampled;
 
   @override
   Widget build(BuildContext context) {
@@ -133,6 +155,21 @@ class ScenePlate extends StatelessWidget {
 
     final painting = Stack(
       children: [
+        // The plate's own sky and ground, painted at once. A scene that hangs
+        // a plate is otherwise white until the file decodes — the live UI
+        // renders on nothing, which reads as a broken page rather than a
+        // loading one.
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [_base(art.sky, night), _base(art.ground, night)],
+              ),
+            ),
+          ),
+        ),
         // Faded rather than switched: the toggle is a light going down, and a
         // painting that snaps to night reads as a different picture.
         //

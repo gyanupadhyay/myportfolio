@@ -10,11 +10,18 @@ import 'package:flutter/painting.dart';
 /// painting's own coordinates and shifted by [origin].
 @immutable
 class PlateArt {
-  const PlateArt(this.asset, this.size, this.origin, {this.night});
+  const PlateArt(this.asset, this.size, this.origin, this.sky,
+      this.ground, {this.night});
 
   final String asset;
   final Size size;
   final Offset origin;
+
+  /// The average of the plate's top and bottom bands, painted as a
+  /// gradient until the file has decoded. Without it the scene opens
+  /// on white and then snaps to a painting.
+  final Color sky;
+  final Color ground;
 
   /// The moonlit bake of the same painting, where one exists.
   ///
@@ -24,12 +31,30 @@ class PlateArt {
   final String? night;
 }
 
-const plateLanding = PlateArt('assets/art/landing.webp', Size(1626, 1049), Offset(0, 36), night: 'assets/art/landing_night.webp');
-const plateWorkshop = PlateArt('assets/art/workshop.webp', Size(1631, 1052), Offset(0, 39));
-const plateJourney = PlateArt('assets/art/journey.webp', Size(1672, 1079), Offset(0, 62), night: 'assets/art/journey_night.webp');
-const plateFyersArrival = PlateArt('assets/art/fyers_arrival.webp', Size(1740, 1123), Offset(0, 98), night: 'assets/art/fyers_arrival_night.webp');
-const plateFyersProblem = PlateArt('assets/art/fyers_problem.webp', Size(1747, 1127), Offset(0, 102));
-const plateFyersResult = PlateArt('assets/art/fyers_result.webp', Size(1808, 1166), Offset(0, 133));
-const plateFyersTransition = PlateArt('assets/art/fyers_transition.webp', Size(1981, 1278), Offset(0, 217), night: 'assets/art/fyers_transition_night.webp');
-const plateHuman = PlateArt('assets/art/human.webp', Size(1989, 1283), Offset(0, 221));
-const plateSunset = PlateArt('assets/art/sunset.webp', Size(2038, 1315), Offset(0, 244));
+const plateLanding = PlateArt('assets/art/landing.webp',
+    Size(1626, 1049), Offset(0, 36),
+    Color(0xFF4C7B9C), Color(0xFF635A30), night: 'assets/art/landing_night.webp');
+const plateWorkshop = PlateArt('assets/art/workshop.webp',
+    Size(1631, 1052), Offset(0, 39),
+    Color(0xFF3E2E21), Color(0xFF29221B));
+const plateJourney = PlateArt('assets/art/journey.webp',
+    Size(1672, 1079), Offset(0, 62),
+    Color(0xFF91A3B4), Color(0xFF283127), night: 'assets/art/journey_night.webp');
+const plateFyersArrival = PlateArt('assets/art/fyers_arrival.webp',
+    Size(1740, 1123), Offset(0, 98),
+    Color(0xFF435D66), Color(0xFF323631), night: 'assets/art/fyers_arrival_night.webp');
+const plateFyersProblem = PlateArt('assets/art/fyers_problem.webp',
+    Size(1747, 1127), Offset(0, 102),
+    Color(0xFF202023), Color(0xFF221B10));
+const plateFyersResult = PlateArt('assets/art/fyers_result.webp',
+    Size(1808, 1166), Offset(0, 133),
+    Color(0xFF4A4749), Color(0xFF1B1B15));
+const plateFyersTransition = PlateArt('assets/art/fyers_transition.webp',
+    Size(1981, 1278), Offset(0, 217),
+    Color(0xFF2D506A), Color(0xFF222212), night: 'assets/art/fyers_transition_night.webp');
+const plateHuman = PlateArt('assets/art/human.webp',
+    Size(1989, 1283), Offset(0, 221),
+    Color(0xFF2F2618), Color(0xFF322B22));
+const plateSunset = PlateArt('assets/art/sunset.webp',
+    Size(2038, 1315), Offset(0, 244),
+    Color(0xFF454043), Color(0xFF12130D));
