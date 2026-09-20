@@ -101,6 +101,11 @@ are authoring aids, not part of the app, and need `opencv-python` and `numpy`:
 - `generate_ambience.py` — synthesises the five seamless ambience loops into
   `assets/audio/`. Loops are seamless by construction rather than by
   cross-fading.
+- `chrome_shots.py` — serves `build/web` and drives real headless Chrome over
+  the twelve routes into `build/chrome/`. `flutter test` renders goldens in the
+  headless Skia tester, which cannot see browser-only problems: web font
+  loading, icon fallbacks, and how a scene actually fits the viewport. Needs a
+  release build first, and honours `CHROME_EXECUTABLE`.
 - `compare_to_reference.py` — scores each render against its reference on four
   measures, so art differences and layout differences can be told apart.
 - `grid_overlay.py` — puts reference and render side by side in design space
