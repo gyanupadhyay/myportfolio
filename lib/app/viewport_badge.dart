@@ -11,7 +11,11 @@ import 'theme/tokens.dart';
 /// the design. If they do not move, the app is not being told about the change.
 ///
 /// Debug builds only — [kDebugMode] compiles it out of a release build, so it
-/// cannot reach the published site. Add `?badge=off` to hide it.
+/// cannot reach the published site. Add `?badge=off` to hide it, or
+/// `?badge=on` to ask a release build for it: the question "what does the app
+/// think it is being shown in?" is one you need answered against the build
+/// that is actually deployed, in the browser it is actually misbehaving in,
+/// and a debug build answers for itself rather than for that one.
 class ViewportBadge extends StatelessWidget {
   const ViewportBadge({super.key, required this.child});
 
@@ -19,7 +23,8 @@ class ViewportBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!kDebugMode || Uri.base.queryParameters['badge'] == 'off') return child;
+    final asked = Uri.base.queryParameters['badge'];
+    if (asked == 'off' || (!kDebugMode && asked != 'on')) return child;
 
     final media = MediaQuery.of(context);
     final size = media.size;
@@ -42,7 +47,8 @@ class ViewportBadge extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                 child: Text(
                   '${size.width.round()} x ${size.height.round()}  ·  '
-                  '${form.name}  ·  dpr ${media.devicePixelRatio.toStringAsFixed(2)}',
+                  '${form.name}  ·  dpr ${media.devicePixelRatio.toStringAsFixed(2)}'
+                  '  ·  text x${media.textScaler.scale(10) / 10}',
                   style: const TextStyle(
                     fontSize: 11,
                     height: 1.2,

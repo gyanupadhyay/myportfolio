@@ -6,39 +6,45 @@ import '../app/theme/tokens.dart';
 import '../app/theme/typography.dart';
 import '../world/stage.dart';
 
-/// The first copy slot's band: it scrolls when the block is taller than the
-/// viewport, and stays out of the way when it is not.
+/// Catches the wheel for a whole scene and hands it to the copy band.
 ///
-/// A viewport fills its band whether or not the copy does, and an opaque one
-/// would eat every click on the art behind the empty half of it — the journey
-/// map's stops sit under exactly that. A translucent one lets those clicks
-/// through and still takes a drag anywhere in the band, but it also drops the
-/// wheel, which a parent only sees when the child claims the pointer. So the
-/// wheel is picked up here instead, through the resolver: over the copy the
-/// scroll view registers first and this handler is dropped, and over the empty
-/// part of the band nothing else claims it, so the page still moves.
-class _ScrollBand extends StatefulWidget {
-  const _ScrollBand({
-    required this.alignment,
-    required this.padding,
-    required this.child,
-  });
+/// The band is only as wide as the copy it holds, so a wheel turned over the
+/// art beside it — most of a wide viewport — would otherwise do nothing, which
+/// is not how a page behaves. This sits over the entire scene instead, and
+/// registers with the pointer-signal resolver rather than acting directly: a
+/// scrollable under the pointer registers first and wins, so the card's own
+/// lists and the phone band still scroll themselves, and this only takes the
+/// turns nothing else wanted.
+class _SceneWheel extends StatefulWidget {
+  const _SceneWheel({required this.builder});
 
-  final Alignment alignment;
-  final EdgeInsets padding;
-  final Widget child;
+  final Widget Function(BuildContext context) builder;
 
   @override
-  State<_ScrollBand> createState() => _ScrollBandState();
+  State<_SceneWheel> createState() => _SceneWheelState();
 }
 
-class _ScrollBandState extends State<_ScrollBand> {
+class _SceneWheelState extends State<_SceneWheel> {
   final _controller = ScrollController();
 
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  /// Whether this band could move at all for [delta].
+  ///
+  /// Registering for a turn it cannot use would swallow it: a chapter binds
+  /// the wheel to its next beat, and a band already at its end has to let
+  /// that through rather than absorb the turn and do nothing.
+  bool _canScroll(double delta) {
+    if (!_controller.hasClients) return false;
+    final position = _controller.position;
+    if (position.maxScrollExtent <= 0) return false;
+    return delta > 0
+        ? position.pixels < position.maxScrollExtent - 0.5
+        : position.pixels > 0.5;
   }
 
   void _wheel(PointerEvent event) {
@@ -54,18 +60,65 @@ class _ScrollBandState extends State<_ScrollBand> {
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerSignal: (event) {
-        if (event is PointerScrollEvent) {
+        if (event is PointerScrollEvent && _canScroll(event.scrollDelta.dy)) {
           GestureBinding.instance.pointerSignalResolver.register(event, _wheel);
         }
       },
-      child: Align(
-        alignment: widget.alignment,
-        child: SingleChildScrollView(
-          controller: _controller,
-          hitTestBehavior: HitTestBehavior.translucent,
-          padding: widget.padding,
-          child: widget.child,
-        ),
+      child: CopyScrollScope(
+        controller: _controller,
+        child: Builder(builder: widget.builder),
+      ),
+    );
+  }
+}
+
+/// The controller the scene's copy band scrolls with, so the wheel catcher
+/// above the scene and the band itself drive the same position.
+class CopyScrollScope extends InheritedWidget {
+  const CopyScrollScope({
+    super.key,
+    required this.controller,
+    required super.child,
+  });
+
+  final ScrollController controller;
+
+  static ScrollController? of(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<CopyScrollScope>()
+      ?.controller;
+
+  @override
+  bool updateShouldNotify(CopyScrollScope old) => controller != old.controller;
+}
+
+/// The first copy slot's band: it scrolls when the block is taller than the
+/// viewport, and stays out of the way when it is not.
+///
+/// A viewport fills its band whether or not the copy does, and an opaque one
+/// would eat every click on the art behind the empty half of it — the journey
+/// map's stops sit under exactly that. Translucent lets those clicks through
+/// and still takes a drag anywhere in the band; the wheel is [_SceneWheel]'s
+/// job, because a parent only sees it when the child claims the pointer.
+class _ScrollBand extends StatelessWidget {
+  const _ScrollBand({
+    required this.alignment,
+    required this.padding,
+    required this.child,
+  });
+
+  final Alignment alignment;
+  final EdgeInsets padding;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: alignment,
+      child: SingleChildScrollView(
+        controller: CopyScrollScope.of(context),
+        hitTestBehavior: HitTestBehavior.translucent,
+        padding: padding,
+        child: child,
       ),
     );
   }
@@ -120,6 +173,7 @@ class SceneUi extends StatelessWidget {
     this.trailing,
     this.footer,
     this.compactExtras = const [],
+    this.compactBelow = const [],
   });
 
   /// Full-bleed bar pinned to the top — the nav.
@@ -144,7 +198,18 @@ class SceneUi extends StatelessWidget {
   /// Shown on phone only — usually the list that stands in for hotspots
   /// scattered across art a phone cannot show all of. A tablet keeps the
   /// composed layout, so it gets [accents] instead.
+  ///
+  /// These float: they are [Positioned] against the whole scene and nothing
+  /// reserves room for them. Anything with height belongs in [compactBelow].
   final List<Widget> compactExtras;
+
+  /// Shown on phone only, laid out *under* the copy rather than over it.
+  ///
+  /// A floating [compactExtras] entry with real height covers the copy it was
+  /// meant to stand beside — the landing's four destinations sat on top of the
+  /// headline, the name and the CTA. These take their own space in the band
+  /// instead, and the copy scrolls in what is left.
+  final List<Widget> compactBelow;
 
   /// Primary action, bottom-right (bottom-centre and full width on a phone).
   final Widget? trailing;
@@ -158,6 +223,8 @@ class SceneUi extends StatelessWidget {
       form.pick(phone: 86.0, tablet: 104.0, desktop: 120.0);
 
   /// Height reserved along the bottom for [trailing] and [footer].
+  ///
+  /// [compactBelow] is not counted: it sits inside the band, not under it.
   double _bottomBandHeight(StageForm form) {
     if (!form.isPhone) return 0;
     var h = 0.0;
@@ -172,9 +239,11 @@ class SceneUi extends StatelessWidget {
     final form = stage.form;
     final gutter = stage.gutter;
 
-    return form.isPhone
-        ? _buildPhone(context, stage, gutter)
-        : _buildRoomy(context, stage, gutter);
+    return _SceneWheel(
+      builder: (context) => form.isPhone
+          ? _buildPhone(context, stage, gutter)
+          : _buildRoomy(context, stage, gutter),
+    );
   }
 
   // --------------------------------------------------------------- desktop
@@ -283,7 +352,9 @@ class SceneUi extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        if (copy.isNotEmpty) ...[
+        // The band carries whichever of the two exists: the workshop has no
+        // copy slot at all, only the list that stands in for its hotspots.
+        if (copy.isNotEmpty || compactBelow.isNotEmpty) ...[
           if (copy.any((s) => s.scrim))
             Positioned.fill(
               child: IgnorePointer(
@@ -308,21 +379,39 @@ class SceneUi extends StatelessWidget {
             right: gutter.right,
             top: bandTop,
             bottom: bandBottom,
-            child: Align(
-              alignment: copy.first.phoneAlignment,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(vertical: T.s12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (final (i, slot) in copy.indexed) ...[
-                      if (i > 0) const SizedBox(height: T.s24),
-                      slot.child,
-                    ],
-                  ],
-                ),
-              ),
+            // A column, so anything below the copy takes its space out of the
+            // band rather than being laid over it. The copy gets what is left
+            // and scrolls inside it.
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (copy.isEmpty)
+                  const Spacer()
+                else
+                  Expanded(
+                    child: Align(
+                      alignment: copy.first.phoneAlignment,
+                      child: SingleChildScrollView(
+                        controller: CopyScrollScope.of(context),
+                        padding: const EdgeInsets.symmetric(vertical: T.s12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (final (i, slot) in copy.indexed) ...[
+                              if (i > 0) const SizedBox(height: T.s24),
+                              slot.child,
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                for (final below in compactBelow) ...[
+                  const SizedBox(height: T.s16),
+                  below,
+                ],
+              ],
             ),
           ),
         ],

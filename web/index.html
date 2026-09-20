@@ -20,7 +20,9 @@
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <!-- Without this a mobile browser lays the page out at a 980px fallback
        width and scales the result down, so the app never sees the real
-       viewport and the phone layout never engages. -->
+       viewport and the phone layout never engages. It governs the first
+       layout only: Flutter replaces this tag with its own equivalent once it
+       boots, and logs that it has done so. -->
   <meta name="viewport"
         content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description"
@@ -37,8 +39,57 @@
 
   <title>Gyan Upadhyay — The Interactive Engineering Story</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- The app is a canvas: until CanvasKit, the fonts and the first painting
+       are all in, there is nothing on screen. That wait used to be a white
+       page, which reads as a broken site rather than a loading one. The page
+       starts as the valley's own sky instead, with one quiet line over it,
+       and Flutter tells us when to take it away. -->
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: linear-gradient(#5E9FD4, #8FBEDE 55%, #C9E2F0);
+    }
+    #splash {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font: 500 15px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      color: #1F2E3D;
+      letter-spacing: 0.02em;
+      transition: opacity 400ms ease-out;
+    }
+    #splash p {
+      animation: breathe 2.4s ease-in-out infinite;
+    }
+    #splash.gone {
+      opacity: 0;
+      pointer-events: none;
+    }
+    @keyframes breathe {
+      0%, 100% { opacity: 0.55; }
+      50% { opacity: 1; }
+    }
+    /* The wait is the only thing here that moves, so it is also the only
+       thing to stop when the visitor has asked for less of it. */
+    @media (prefers-reduced-motion: reduce) {
+      #splash p { animation: none; }
+      #splash { transition: none; }
+    }
+  </style>
 </head>
 <body>
+  <div id="splash"><p>Drawing the world…</p></div>
+  <script>
+    // Flutter fires this once it has actually painted something.
+    window.addEventListener('flutter-first-frame', function () {
+      var splash = document.getElementById('splash');
+      if (splash) splash.classList.add('gone');
+    });
+  </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader

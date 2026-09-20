@@ -4,6 +4,7 @@ import '../app/motion.dart';
 import '../app/theme/lighting.dart';
 import '../app/theme/tokens.dart';
 import '../app/theme/typography.dart';
+import '../data/models/chapter.dart';
 import 'reveal.dart';
 
 /// Green tick + label. Frames 07 and 09.
@@ -97,6 +98,7 @@ class MetricRow extends StatelessWidget {
     required this.value,
     this.icon = Icons.insert_drive_file_outlined,
     this.emphasis = false,
+    this.tone = MetricTone.neutral,
     this.valueColor,
   });
 
@@ -104,13 +106,25 @@ class MetricRow extends StatelessWidget {
   final String value;
   final IconData icon;
 
-  /// The "Total" row — brighter, larger, alert-coloured.
+  /// The summary row — brighter, larger, and tinted by [tone].
   final bool emphasis;
+
+  /// What the emphasised row is saying. Red is for a problem; a result the
+  /// visitor should read as good news gets the success colour instead.
+  final MetricTone tone;
+
   final Color? valueColor;
+
+  Color _tint(LightingPalette palette) => switch (tone) {
+        MetricTone.alert => T.alert,
+        MetricTone.good => T.success,
+        MetricTone.neutral => palette.accent,
+      };
 
   @override
   Widget build(BuildContext context) {
     final palette = Lighting.paletteOf(context);
+    final tint = valueColor ?? _tint(palette);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: T.s12, vertical: T.s8),
       decoration: BoxDecoration(
@@ -125,7 +139,7 @@ class MetricRow extends StatelessWidget {
           Icon(
             emphasis ? Icons.circle : icon,
             size: emphasis ? 7 : 13,
-            color: emphasis ? (valueColor ?? T.alert) : palette.onPanelMuted,
+            color: emphasis ? tint : palette.onPanelMuted,
           ),
           const SizedBox(width: T.s8),
           Expanded(
@@ -140,7 +154,7 @@ class MetricRow extends StatelessWidget {
           Text(
             value,
             style: (emphasis ? Type.monoTotal : Type.monoValue).copyWith(
-              color: valueColor ?? (emphasis ? T.alert : T.metricBlue),
+              color: emphasis ? tint : (valueColor ?? T.metricBlue),
             ),
           ),
         ],

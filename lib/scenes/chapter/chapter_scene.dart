@@ -20,6 +20,8 @@ import '../../world/painters/character.dart';
 import '../../world/painters/interior.dart';
 import '../../world/painters/landscape.dart';
 import '../../world/painters/paint_kit.dart';
+import '../../world/plate.dart';
+import '../../world/plates.g.dart';
 import '../../world/stage.dart';
 
 /// Renders any [Chapter] as a sequence of staged beats.
@@ -87,9 +89,21 @@ class _ChapterSceneState extends State<ChapterScene> {
 
   /// One wheel gesture advances one beat, then locks briefly so a single
   /// trackpad flick does not skip three scenes.
+  ///
+  /// Registered with the pointer-signal resolver rather than acted on
+  /// directly: a beat whose copy is taller than the viewport puts a scrollable
+  /// band under the pointer, and that band has first claim on the turn. Acting
+  /// here regardless meant the same flick both scrolled the copy and left the
+  /// beat, so the end of a long panel could not be reached with a mouse at
+  /// all — there is no scrollbar, and the arrow keys are bound to the beats.
   void _onWheel(PointerSignalEvent event) {
-    if (event is! PointerScrollEvent || _wheelLocked) return;
+    if (event is! PointerScrollEvent) return;
     if (event.scrollDelta.dy.abs() < 6) return;
+    GestureBinding.instance.pointerSignalResolver.register(event, _step);
+  }
+
+  void _step(PointerEvent event) {
+    if (event is! PointerScrollEvent || _wheelLocked) return;
     _wheelLocked = true;
     _go(_beat + (event.scrollDelta.dy > 0 ? 1 : -1));
     Future<void>.delayed(const Duration(milliseconds: 700), () {
@@ -250,13 +264,23 @@ class _ChapterChrome extends StatelessWidget {
             children: [
               // The badge's row is ~369 units wide and a narrow phone leaves it
               // 362, so it scales down instead of clipping its own title.
-              Align(
-                alignment: Alignment.centerLeft,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: badge,
-                ),
+              Row(
+                children: [
+                  Flexible(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: badge,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: T.s8),
+                  // A chapter shows no nav, so without this the light and the
+                  // ambience could not be reached from any of the 25 beats.
+                  const AmbientToggles(),
+                ],
               ),
               const Spacer(),
               Row(
@@ -290,6 +314,7 @@ class _ChapterChrome extends StatelessWidget {
         Stack(
           children: [
             Align(alignment: Alignment.topLeft, child: badge),
+            const Align(alignment: Alignment.topRight, child: AmbientToggles()),
             Align(alignment: Alignment.bottomCenter, child: dots),
             Align(alignment: Alignment.bottomRight, child: arrows),
           ],
@@ -298,6 +323,56 @@ class _ChapterChrome extends StatelessWidget {
     );
   }
 }
+
+/// The beats a painted plate exists for, keyed `<chapter>/<beat>`.
+///
+/// A beat without one is staged by its [BeatLayout] as before, so a chapter
+/// can be part painted and part drawn while the rest of the art is made.
+/// `advance` is the painted control that carries the story on — the arrival's
+/// "Enter the Story", the transition's signpost.
+/// A beat is only given a plate when the painting agrees with the data.
+///
+/// `fyers/arrival` deliberately has none. Its frame was painted from an
+/// earlier script: it reads "Chapter 2" where FYERS is the third stop on the
+/// map, and its paragraph and its sign are not the ones in
+/// `lib/data/chapters/fyers.dart`. Desktop visitors were being told a
+/// different thing about the same job than everyone else, so that beat is
+/// drawn — correct, selectable, and data-driven — until the reference is
+/// repainted without its copy. Lifting the copy out of the finished painting
+/// is not an option: a median leaves the display type behind as ghosts, and
+/// rebuilding the wash under it leaves a flat patch where the art was. See
+/// the landing in `tool/make_plates.py` for the shape the reference needs to
+/// arrive in: paint with the copy area left clear, so Flutter can draw over
+/// it. [_Opening] takes a `plate` and is ready for it.
+const _beatPlates =
+    <
+      String,
+      ({
+        PlateArt art,
+        SceneLighting lighting,
+        Rect? advance,
+        String advanceLabel,
+      })
+    >{
+      'fyers/problem': (
+        art: plateFyersProblem,
+        lighting: SceneLighting.night,
+        advance: null,
+        advanceLabel: '',
+      ),
+      'fyers/result': (
+        art: plateFyersResult,
+        lighting: SceneLighting.sunset,
+        advance: null,
+        advanceLabel: '',
+      ),
+      'fyers/transition': (
+        art: plateFyersTransition,
+        lighting: SceneLighting.day,
+        advance: Rect.fromLTRB(1595, 342, 1937, 523),
+        advanceLabel: 'On to the next chapter',
+      ),
+    };
 
 /// Stages one beat according to its [BeatLayout].
 class BeatScene extends StatelessWidget {
@@ -313,11 +388,36 @@ class BeatScene extends StatelessWidget {
   final VoidCallback onAdvance;
 
   @override
-  Widget build(BuildContext context) => switch (beat.layout) {
+  Widget build(BuildContext context) {
+    final art = _beatPlates['${chapter.id}/${beat.id}'];
+    if (art != null && platesOn(context)) {
+      return WorldStage(
+        lighting: art.lighting,
+        children: [
+          ScenePlate(
+            art: art.art,
+            lighting: art.lighting,
+            children: [
+              if (art.advance case final rect?)
+                PlateHotspot(
+                  rect: rect,
+                  label: art.advanceLabel,
+                  onTap: onAdvance,
+                ),
+            ],
+          ),
+        ],
+      );
+    }
+    return _byLayout();
+  }
+
+  Widget _byLayout({PlateArt? plate}) => switch (beat.layout) {
     BeatLayout.opening => _Opening(
       chapter: chapter,
       beat: beat,
       onEnter: onAdvance,
+      plate: plate,
     ),
     BeatLayout.problem => _Problem(beat: beat),
     BeatLayout.investigation => _Investigation(beat: beat),
@@ -341,15 +441,29 @@ class _Opening extends StatelessWidget {
     required this.chapter,
     required this.beat,
     required this.onEnter,
+    this.plate,
   });
 
   final Chapter chapter;
   final StoryBeat beat;
   final VoidCallback onEnter;
 
+  /// The painting to hang behind this beat, where one exists. The copy is
+  /// drawn over it either way, so the establishing shot reads the same words
+  /// whether it is painted or drawn.
+  final PlateArt? plate;
+
   @override
   Widget build(BuildContext context) {
     final glass = Color(chapter.accentColor ?? 0xFF6E93B8);
+    final art = plate;
+    // This copy sits straight on the sky with no panel behind it, so its ink
+    // has to follow the light rather than being pinned to white: white on the
+    // day sky this scene opens in measures about 1.7:1, and the chapter title
+    // is the first thing a visitor reads. `night_mode_test` holds this pair
+    // of colours to 4.5:1 in every light.
+    final palette = DayNightScope.paletteFor(context, SceneLighting.day);
+    final halo = [Shadow(color: palette.worldTextShadow, blurRadius: 12)];
 
     return WorldStage(
       lighting: SceneLighting.day,
@@ -366,32 +480,26 @@ class _Opening extends StatelessWidget {
                   Text(
                     beat.eyebrow!,
                     style: Type.eyebrow.copyWith(
-                      color: Colors.white.withValues(alpha: 0.92),
-                      shadows: const [
-                        Shadow(color: Color(0x99000000), blurRadius: 8),
-                      ],
+                      color: palette.onWorldMuted,
+                      shadows: halo,
                     ),
                   ),
                 const SizedBox(height: T.s8),
                 Text(
                   chapter.title,
                   style: Type.displayLg.copyWith(
-                    color: Colors.white,
-                    shadows: const [
-                      Shadow(color: Color(0x99000000), blurRadius: 14),
-                    ],
+                    color: palette.onWorld,
+                    shadows: halo,
                   ),
                 ),
                 const SizedBox(height: T.s6),
                 Text(
                   chapter.subtitle,
                   style: Type.bodyLg.copyWith(
-                    color: Colors.white,
+                    color: palette.onWorld,
                     fontStyle: FontStyle.italic,
                     fontWeight: FontWeight.w600,
-                    shadows: const [
-                      Shadow(color: Color(0x99000000), blurRadius: 10),
-                    ],
+                    shadows: halo,
                   ),
                 ),
                 const SizedBox(height: T.s20),
@@ -401,10 +509,8 @@ class _Opening extends StatelessWidget {
                     child: Text(
                       beat.body!,
                       style: Type.bodyLg.copyWith(
-                        color: Colors.white.withValues(alpha: 0.95),
-                        shadows: const [
-                          Shadow(color: Color(0xAA000000), blurRadius: 10),
-                        ],
+                        color: palette.onWorldMuted,
+                        shadows: halo,
                       ),
                     ),
                   ),
@@ -416,7 +522,9 @@ class _Opening extends StatelessWidget {
         ],
 
         accents: [
-          if (beat.signLines.isNotEmpty)
+          // The painting has a sign in it already; a second one over the top
+          // would read as a duplicate.
+          if (beat.signLines.isNotEmpty && plate == null)
             At(
               right: 64,
               bottom: 96,
@@ -434,63 +542,83 @@ class _Opening extends StatelessWidget {
             ),
         ],
       ),
-      children: [
-        SceneLayer(seed: 11, paint: [Landscape.sky]),
-        ParallaxLayer(
-          depth: 0.1,
-          child: SceneLayer(
-            seed: 221,
-            paint: [
-              Landscape.clouds(seed: 221, band: 0.12, count: 4, scale: 0.5),
-            ],
-          ),
-        ),
-        ParallaxLayer(
-          depth: 0.3,
-          child: SceneLayer(
-            seed: 231,
-            repaintOnTime: false,
-            paint: [
-              Cityscape.officeTower(
-                seed: 233,
-                bounds: (size) => Rect.fromLTWH(
-                  size.width * 0.50,
-                  size.height * 0.08,
-                  size.width * 0.30,
-                  size.height * 0.74,
+      children: art != null
+          ? [
+              ScenePlate(art: art, lighting: SceneLighting.day),
+              // The copy sits straight on the painting, so it needs the same veil
+              // the landing lays under its headline.
+              const PlateScrim(),
+            ]
+          : [
+              SceneLayer(seed: 11, paint: [Landscape.sky]),
+              ParallaxLayer(
+                depth: 0.1,
+                child: SceneLayer(
+                  seed: 221,
+                  paint: [
+                    Landscape.clouds(
+                      seed: 221,
+                      band: 0.12,
+                      count: 4,
+                      scale: 0.5,
+                    ),
+                  ],
                 ),
-                sign: chapter.title.toUpperCase(),
-                glass: glass,
               ),
-              Cityscape.officeTower(
-                seed: 241,
-                bounds: (size) => Rect.fromLTWH(
-                  size.width * 0.82,
-                  size.height * 0.24,
-                  size.width * 0.16,
-                  size.height * 0.58,
+              ParallaxLayer(
+                depth: 0.3,
+                child: SceneLayer(
+                  seed: 231,
+                  repaintOnTime: false,
+                  paint: [
+                    Cityscape.officeTower(
+                      seed: 233,
+                      bounds: (size) => Rect.fromLTWH(
+                        size.width * 0.50,
+                        size.height * 0.08,
+                        size.width * 0.30,
+                        size.height * 0.74,
+                      ),
+                      sign: chapter.title.toUpperCase(),
+                      glass: glass,
+                    ),
+                    Cityscape.officeTower(
+                      seed: 241,
+                      bounds: (size) => Rect.fromLTWH(
+                        size.width * 0.82,
+                        size.height * 0.24,
+                        size.width * 0.16,
+                        size.height * 0.58,
+                      ),
+                      glass: Color.lerp(glass, Colors.black, 0.22)!,
+                    ),
+                  ],
                 ),
-                glass: Color.lerp(glass, Colors.black, 0.22)!,
+              ),
+              ParallaxLayer(
+                depth: 0.6,
+                child: SceneLayer(
+                  seed: 251,
+                  repaintOnTime: false,
+                  paint: [_plaza],
+                ),
+              ),
+              ParallaxLayer(
+                depth: 1.0,
+                child: SceneLayer(
+                  seed: 261,
+                  repaintOnTime: false,
+                  paint: [
+                    Landscape.foliageFrame(seed: 261, right: false, scale: 0.9),
+                  ],
+                ),
+              ),
+              SceneLayer(
+                seed: 91,
+                repaintOnTime: false,
+                paint: [Landscape.ambient],
               ),
             ],
-          ),
-        ),
-        ParallaxLayer(
-          depth: 0.6,
-          child: SceneLayer(seed: 251, repaintOnTime: false, paint: [_plaza]),
-        ),
-        ParallaxLayer(
-          depth: 1.0,
-          child: SceneLayer(
-            seed: 261,
-            repaintOnTime: false,
-            paint: [
-              Landscape.foliageFrame(seed: 261, right: false, scale: 0.9),
-            ],
-          ),
-        ),
-        SceneLayer(seed: 91, repaintOnTime: false, paint: [Landscape.ambient]),
-      ],
     );
   }
 
@@ -538,6 +666,10 @@ class _Problem extends StatelessWidget {
     return WorldStage(
       lighting: SceneLighting.night,
       ui: SceneUi(
+        // Title, paragraph and panel in one column rather than two blocks
+        // pinned at 110 and 330. The panel's own anchor assumed a two-line
+        // paragraph; PartyHunt's runs to three and the last line went under
+        // the glass, taking the sentence's last word with it.
         copy: [
           CopySlot(
             left: 75,
@@ -566,39 +698,43 @@ class _Problem extends StatelessWidget {
                       ),
                     ),
                   ),
-              ],
-            ),
-          ),
-          CopySlot(
-            left: 75,
-            top: 330,
-            width: 620,
-            child: Reveal(
-              delay: const Duration(milliseconds: 520),
-              child: GlassPanel(
-                padding: const EdgeInsets.fromLTRB(T.s24, T.s20, T.s24, T.s20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    LaunchProgress(
-                      label: beat.progressLabel ?? 'Working…',
-                      result: beat.progressResult ?? '',
-                      width: 280,
-                    ),
-                    if (beat.accent != null) ...[
-                      const SizedBox(height: T.s16),
-                      Text(
-                        beat.accent!,
-                        style: Type.handSmall.copyWith(
-                          fontSize: 30,
-                          color: Colors.white.withValues(alpha: 0.92),
-                        ),
+                const SizedBox(height: T.s32),
+                SizedBox(
+                  width: 620,
+                  child: Reveal(
+                    delay: const Duration(milliseconds: 520),
+                    child: GlassPanel(
+                      padding: const EdgeInsets.fromLTRB(
+                        T.s24,
+                        T.s20,
+                        T.s24,
+                        T.s20,
                       ),
-                    ],
-                  ],
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          LaunchProgress(
+                            label: beat.progressLabel ?? 'Working…',
+                            result: beat.progressResult ?? '',
+                            width: 280,
+                          ),
+                          if (beat.accent != null) ...[
+                            const SizedBox(height: T.s16),
+                            Text(
+                              beat.accent!,
+                              style: Type.handSmall.copyWith(
+                                fontSize: 30,
+                                color: Colors.white.withValues(alpha: 0.92),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ],
@@ -748,6 +884,8 @@ class _Investigation extends StatelessWidget {
       lighting: SceneLighting.night,
       ui: SceneUi(
         copy: [
+          // One column, for the same reason as the problem beat above: the
+          // panel's anchor left only enough room for a short paragraph.
           CopySlot(
             left: 75,
             top: 100,
@@ -775,49 +913,54 @@ class _Investigation extends StatelessWidget {
                       ),
                     ),
                   ),
-              ],
-            ),
-          ),
-          CopySlot(
-            left: 75,
-            top: 330,
-            width: 640,
-            child: Reveal(
-              delay: const Duration(milliseconds: 420),
-              child: GlassPanel(
-                padding: const EdgeInsets.fromLTRB(T.s20, T.s16, T.s20, T.s16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (beat.panelTitle != null)
-                      Padding(
-                        padding: const EdgeInsets.only(
-                          left: T.s4,
-                          bottom: T.s12,
-                        ),
-                        child: Text(
-                          beat.panelTitle!,
-                          style: Type.label.copyWith(color: Colors.white),
-                        ),
+                const SizedBox(height: T.s24),
+                SizedBox(
+                  width: 640,
+                  child: Reveal(
+                    delay: const Duration(milliseconds: 420),
+                    child: GlassPanel(
+                      padding: const EdgeInsets.fromLTRB(
+                        T.s20,
+                        T.s16,
+                        T.s20,
+                        T.s16,
                       ),
-                    RevealGroup(
-                      start: const Duration(milliseconds: 620),
-                      step: const Duration(milliseconds: 150),
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      spacing: T.s4,
-                      children: [
-                        for (final m in beat.metrics)
-                          MetricRow(
-                            label: m.label,
-                            value: m.value,
-                            emphasis: m.emphasis,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (beat.panelTitle != null)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                left: T.s4,
+                                bottom: T.s12,
+                              ),
+                              child: Text(
+                                beat.panelTitle!,
+                                style: Type.label.copyWith(color: Colors.white),
+                              ),
+                            ),
+                          RevealGroup(
+                            start: const Duration(milliseconds: 620),
+                            step: const Duration(milliseconds: 150),
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            spacing: T.s4,
+                            children: [
+                              for (final m in beat.metrics)
+                                MetricRow(
+                                  label: m.label,
+                                  value: m.value,
+                                  emphasis: m.emphasis,
+                                  tone: m.tone,
+                                ),
+                            ],
                           ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ],
@@ -996,7 +1139,32 @@ class _DecisionState extends State<_Decision> {
             left: 65,
             top: 95,
             width: 550,
-            child: Reveal(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // The tabs, immediately above the note they switch.
+                //
+                // The frame composes them into the opposite corner, a
+                // thousand pixels from the list they change: nothing about
+                // the pill said which panel answered to it, and on a phone it
+                // was laid over the checklist rather than beside it. Above
+                // rather than below, because this note runs past the fold on
+                // the longer chapters and a control under it would go with
+                // it. A control belongs with its content, even when the
+                // painting disagrees.
+                if (_tabNames.length > 1) ...[
+                  Reveal(
+                    delay: const Duration(milliseconds: 560),
+                    child: SegmentedTabs(
+                      tabs: _tabNames,
+                      index: _tab,
+                      onChanged: (i) => setState(() => _tab = i),
+                    ),
+                  ),
+                  const SizedBox(height: T.s12),
+                ],
+                Reveal(
               delay: const Duration(milliseconds: 160),
               child: ParchmentPanel(
                 seed: 17,
@@ -1036,42 +1204,9 @@ class _DecisionState extends State<_Decision> {
                 ),
               ),
             ),
+              ],
+            ),
           ),
-        ],
-        accents: [
-          if (_tabNames.length > 1)
-            At(
-              right: 56,
-              bottom: 64,
-              child: Reveal(
-                delay: const Duration(milliseconds: 560),
-                child: SegmentedTabs(
-                  tabs: _tabNames,
-                  index: _tab,
-                  onChanged: (i) => setState(() => _tab = i),
-                ),
-              ),
-            ),
-        ],
-        // The tabs switch the panel above them, so unlike the handwritten
-        // accents they cannot simply be dropped on a phone.
-        compactExtras: [
-          if (_tabNames.length > 1)
-            Positioned(
-              left: T.s24,
-              right: T.s24,
-              bottom: 120,
-              child: Reveal(
-                delay: const Duration(milliseconds: 560),
-                child: Center(
-                  child: SegmentedTabs(
-                    tabs: _tabNames,
-                    index: _tab,
-                    onChanged: (i) => setState(() => _tab = i),
-                  ),
-                ),
-              ),
-            ),
         ],
       ),
       children: [
@@ -1882,11 +2017,11 @@ class _ChapterBadge extends StatelessWidget {
   /// Fill and border for the kind badge, so a degree is never tinted like a
   /// job.
   (Color, Color) get _tint => switch (credibility) {
-        Credibility.professional => (T.success, T.successGlow),
-        Credibility.education => (T.lampGlow, T.lampGlow),
-        Credibility.personalProject => (T.metricBlue, T.metricBlue),
-        Credibility.exploration => (T.lampGlow, T.lampGlow),
-      };
+    Credibility.professional => (T.success, T.successGlow),
+    Credibility.education => (T.lampGlow, T.lampGlow),
+    Credibility.personalProject => (T.metricBlue, T.metricBlue),
+    Credibility.exploration => (T.lampGlow, T.lampGlow),
+  };
 
   @override
   Widget build(BuildContext context) {

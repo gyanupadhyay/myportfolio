@@ -51,6 +51,14 @@ class FlowStep {
   final String? detail;
 }
 
+/// What an emphasised [Metric] is saying — the row is the beat's punchline,
+/// and a punchline can be a problem or a result.
+///
+/// Every emphasised row used to be painted in alert red, which is right for
+/// the reference frame's "Total: 1420ms" and wrong for "Defined timeline —
+/// met", where it read as a failure.
+enum MetricTone { neutral, good, alert }
+
 /// A measured outcome. Only ever populated from work the résumé supports.
 @immutable
 class Metric {
@@ -58,11 +66,15 @@ class Metric {
     required this.label,
     required this.value,
     this.emphasis = false,
+    this.tone = MetricTone.neutral,
   });
 
   final String label;
   final String value;
   final bool emphasis;
+
+  /// Only read when [emphasis] is set; an ordinary row is never tinted.
+  final MetricTone tone;
 }
 
 /// Before/after figures for an [BeatLayout.outcome] beat.

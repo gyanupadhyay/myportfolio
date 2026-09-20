@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:myportfolio/app/theme/day_night.dart';
+import 'package:myportfolio/world/plate.dart';
 import 'package:myportfolio/scenes/arrival/arrival_scene.dart';
 import 'package:myportfolio/data/chapters/bosswallah.dart';
 import 'package:myportfolio/data/chapters/fyers.dart';
@@ -24,6 +25,11 @@ import 'package:myportfolio/scenes/workshop/workshop_scene.dart';
 /// side by side with `docs/reference/*.png`.
 ///
 /// Run with: flutter test test/render_frames_test.dart --update-goldens
+///
+/// This renders the *drawn* world. A painted plate is an image, and the widget
+/// tester does not decode images, so with plates on these frames would come
+/// out blank — the suite skips itself instead. To see the painted scenes, use
+/// tool/chrome_shots.py, which drives the real browser.
 Future<void> _loadFonts() async {
   // Material icons are not bundled into the test binary; load them from the
   // SDK cache so icon glyphs render instead of tofu boxes.
@@ -52,6 +58,10 @@ Future<void> _loadFonts() async {
     await loader.load();
   }
 }
+
+/// Plates are images, and the widget tester does not decode them, so these
+/// frames would come out blank. Run with `--dart-define=PLATES=false`.
+const _skipPlated = kPaintedPlates;
 
 void main() {
   setUpAll(() async {
@@ -101,17 +111,17 @@ void main() {
     );
   }
 
-  testWidgets('frame 01 — landing', (tester) async {
+  testWidgets('frame 01 — landing', skip: _skipPlated, (tester) async {
     await renderFrame(tester, 'frame_01_landing',
         ArrivalScene(onNavigate: (_) {}));
   });
 
-  testWidgets('frame 02 — workshop', (tester) async {
+  testWidgets('frame 02 — workshop', skip: _skipPlated, (tester) async {
     await renderFrame(tester, 'frame_02_workshop',
         WorkshopScene(onNavigate: (_) {}));
   });
 
-  testWidgets('frame 03 — journey map', (tester) async {
+  testWidgets('frame 03 — journey map', skip: _skipPlated, (tester) async {
     await renderFrame(tester, 'frame_03_journey',
         JourneyScene(onNavigate: (_) {}));
   });
@@ -127,7 +137,7 @@ void main() {
     'frame_10_transition',
   ];
   for (var i = 0; i < fyersFrames.length; i++) {
-    testWidgets(fyersFrames[i], (tester) async {
+    testWidgets(fyersFrames[i], skip: _skipPlated, (tester) async {
       await renderFrame(
         tester,
         fyersFrames[i],
@@ -140,17 +150,17 @@ void main() {
     });
   }
 
-  testWidgets('frame 11 — personal side', (tester) async {
+  testWidgets('frame 11 — personal side', skip: _skipPlated, (tester) async {
     await renderFrame(tester, 'frame_11_personal',
         HumanScene(onNavigate: (_) {}));
   });
 
-  testWidgets('frame 12 — final / contact', (tester) async {
+  testWidgets('frame 12 — final / contact', skip: _skipPlated, (tester) async {
     await renderFrame(tester, 'frame_12_contact',
         SunsetScene(onNavigate: (_) {}, onContact: (_) {}));
   });
 
-  testWidgets('frame 13 — observatory', (tester) async {
+  testWidgets('frame 13 — observatory', skip: _skipPlated, (tester) async {
     await renderFrame(
       tester,
       'frame_13_observatory',
@@ -160,12 +170,12 @@ void main() {
 
   // The other three chapters run through the same generic renderer, so one
   // beat of each is enough to catch a layout that cannot hold their content.
-  testWidgets('chapter — SMVDU opening', (tester) async {
+  testWidgets('chapter — SMVDU opening', skip: _skipPlated, (tester) async {
     await renderFrame(tester, 'chapter_smvdu_opening',
         ChapterScene(chapter: smvduChapter, onNavigate: (_) {}));
   });
 
-  testWidgets('chapter — PartyHunt outcome', (tester) async {
+  testWidgets('chapter — PartyHunt outcome', skip: _skipPlated, (tester) async {
     await renderFrame(
       tester,
       'chapter_partyhunt_outcome',
@@ -177,7 +187,7 @@ void main() {
     );
   });
 
-  testWidgets('chapter — Boss Works AI deep dive', (tester) async {
+  testWidgets('chapter — Boss Works AI deep dive', skip: _skipPlated, (tester) async {
     await renderFrame(
       tester,
       'chapter_bosswallah_deepdive',
@@ -190,12 +200,12 @@ void main() {
     );
   });
 
-  testWidgets('night — landing', (tester) async {
+  testWidgets('night — landing', skip: _skipPlated, (tester) async {
     await renderNight(tester, 'night_01_landing',
         ArrivalScene(onNavigate: (_) {}));
   });
 
-  testWidgets('night — journey map', (tester) async {
+  testWidgets('night — journey map', skip: _skipPlated, (tester) async {
     await renderNight(tester, 'night_03_journey',
         JourneyScene(onNavigate: (_) {}));
   });

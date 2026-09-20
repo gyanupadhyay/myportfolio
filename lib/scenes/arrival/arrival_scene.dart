@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/theme/day_night.dart';
@@ -10,8 +11,11 @@ import '../../components/controls.dart';
 import '../../components/reveal.dart';
 import '../../components/scene_layout.dart';
 import '../../components/scene_ui.dart';
+import '../../data/journey.dart';
 import '../../world/painters/character.dart';
 import '../../world/painters/landscape.dart';
+import '../../world/plate.dart';
+import '../../world/plates.g.dart';
 import '../../world/stage.dart';
 
 /// Frame 01 — Landing / The World.
@@ -28,6 +32,36 @@ class ArrivalScene extends StatefulWidget {
 
 class _ArrivalSceneState extends State<ArrivalScene> {
   bool _scrolled = false;
+  bool _leaving = false;
+
+  /// The hint says "Scroll to explore", so a scroll has to explore something.
+  ///
+  /// It used to only fade the hint out: the invitation was painted into the
+  /// frame, repeated in the live footer, and answered by nothing. A turn down
+  /// starts the journey — the same thing the CTA beside it does, and the same
+  /// idiom the chapters use, where the wheel carries the story on.
+  ///
+  /// Registered with the resolver rather than acted on directly, so a phone's
+  /// copy band scrolls itself first and only a turn it cannot use gets here.
+  void _onWheel(PointerSignalEvent event) {
+    if (event is! PointerScrollEvent) return;
+    if (!_scrolled) setState(() => _scrolled = true);
+    if (event.scrollDelta.dy < 12 || _leaving) return;
+    GestureBinding.instance.pointerSignalResolver.register(event, (_) {
+      if (_leaving) return;
+      _leaving = true;
+      widget.onNavigate('/workshop');
+    });
+  }
+
+  /// The four planks, traced off `assets/art/landing_day.webp` in its own
+  /// pixel space. Same order as [_signs].
+  static const _plankHotspots = <Rect>[
+    Rect.fromLTRB(1275, 246, 1535, 350),
+    Rect.fromLTRB(1285, 378, 1530, 472),
+    Rect.fromLTRB(1278, 490, 1532, 584),
+    Rect.fromLTRB(1293, 604, 1528, 702),
+  ];
 
   static const _signs = <({String label, String route})>[
     (label: 'Projects', route: '/chapter/fyers'),
@@ -42,23 +76,16 @@ class _ArrivalSceneState extends State<ArrivalScene> {
     // ink has to follow the light the visitor chose — dark on a bright
     // morning, pale once the sun is down.
     final palette = DayNightScope.paletteFor(context, SceneLighting.day);
+    final plate = platesOn(context);
     return Listener(
-      onPointerSignal: (_) {
-        if (!_scrolled) setState(() => _scrolled = true);
-      },
+      onPointerSignal: _onWheel,
       child: WorldStage(
         lighting: SceneLighting.day,
         ui: SceneUi(
           topBar: TopNav(
-            items: const ['Home', 'Journal', 'Map', 'Projects', 'About'],
+            items: navLabels,
             current: 'Home',
-            onSelect: (item) => widget.onNavigate(switch (item) {
-              'Map' => '/map',
-              'Projects' => '/chapter/fyers',
-              'Journal' => '/chapter/fyers',
-              'About' => '/human',
-              _ => '/',
-            }),
+            onSelect: (item) => widget.onNavigate(navRouteFor(item)),
           ),
           copy: [CopySlot(
             left: 75,
@@ -74,7 +101,6 @@ class _ArrivalSceneState extends State<ArrivalScene> {
                   style: Type.handHero,
                   color: palette.onWorld,
                   rotation: -0.018,
-                  shadow: false,
                 ),
                 const SizedBox(height: 38),
                 Text(
@@ -88,10 +114,20 @@ class _ArrivalSceneState extends State<ArrivalScene> {
                 ),
                 const SizedBox(height: T.s8),
                 SizedBox(
-                  width: 300,
+                  // Wide enough to hold the first line whole: at 300 it broke
+                  // after "product", which reads as a third line of copy. The
+                  // line measures ~400 at design scale.
+                  width: 430,
                   child: Text(
                     'A Flutter engineer, product builder,\nand an explorer at heart.',
-                    style: Type.body.copyWith(color: palette.onWorldMuted),
+                    style: Type.body.copyWith(
+                      color: palette.onWorldMuted,
+                      // Bare, this line measured 3.9:1 on the day sky. The
+                      // halo is what the palette's contrast is measured with.
+                      shadows: [
+                        Shadow(color: palette.worldTextShadow, blurRadius: 10),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 26),
@@ -111,8 +147,11 @@ class _ArrivalSceneState extends State<ArrivalScene> {
           // the right edge of the frame, which is the first thing a narrow
           // viewport loses — so on a phone the same four routes become a list
           // under the copy instead.
+          //
+          // On a plate the painting already carries the post, so the planks
+          // become hotspots on the art rather than widgets over it.
           accents: [
-            At(
+            if (!plate) At(
               right: 34,
               top: 200,
               child: Reveal(
@@ -122,32 +161,42 @@ class _ArrivalSceneState extends State<ArrivalScene> {
               ),
             ),
           ],
-          compactExtras: [
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(T.s24, 0, T.s24, T.s64),
-                child: Reveal(
-                  delay: const Duration(milliseconds: 520),
-                  child: CompactDestinationList(
-                    title: 'Or go straight there',
-                    children: [
-                      for (final sign in _signs)
-                        CompactDestination(
-                          label: sign.label,
-                          onTap: () => widget.onNavigate(sign.route),
-                        ),
-                    ],
-                  ),
-                ),
+          compactBelow: [
+            Reveal(
+              delay: const Duration(milliseconds: 520),
+              child: CompactDestinationList(
+                title: 'Or go straight there',
+                children: [
+                  for (final sign in _signs)
+                    CompactDestination(
+                      label: sign.label,
+                      onTap: () => widget.onNavigate(sign.route),
+                    ),
+                ],
               ),
             ),
           ],
           footer: ScrollHint(visible: !_scrolled),
         ),
-        children: [
+        children: plate
+            ? [
+                ScenePlate(
+                  art: plateLanding,
+                  lighting: SceneLighting.day,
+                  children: [
+                    // Traced off the painted signpost, so the planks stay
+                    // clickable without a widget being drawn over them.
+                    for (final (i, sign) in _signs.indexed)
+                      PlateHotspot(
+                        rect: _plankHotspots[i],
+                        label: sign.label,
+                        onTap: () => widget.onNavigate(sign.route),
+                      ),
+                  ],
+                ),
+                const PlateScrim(),
+              ]
+            : [
           // ---------------------------------------------------------- world
           SceneLayer(seed: 11, paint: [Landscape.sky]),
 

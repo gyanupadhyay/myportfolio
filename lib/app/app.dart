@@ -6,6 +6,7 @@ import '../data/chapters/bosswallah.dart';
 import '../data/chapters/fyers.dart';
 import '../data/chapters/partyhunt.dart';
 import '../data/chapters/smvdu.dart';
+import '../components/controls.dart';
 import '../data/models/chapter.dart';
 import '../scenes/arrival/arrival_scene.dart';
 import '../scenes/chapter/chapter_scene.dart' deferred as chapter_scene;
@@ -201,6 +202,7 @@ Widget _chapterFor(
     return _NotFound(
       onHome: () => context.go('/map'),
       message: 'That chapter is still being written.',
+      homeLabel: 'The journey map',
     );
   }
   progress.visit(id);
@@ -291,32 +293,64 @@ class _PortfolioAppState extends State<PortfolioApp> {
 }
 
 class _NotFound extends StatelessWidget {
-  const _NotFound({required this.onHome, this.message});
+  const _NotFound({required this.onHome, this.message, this.homeLabel});
 
   final VoidCallback onHome;
   final String? message;
+  final String? homeLabel;
 
   @override
   Widget build(BuildContext context) {
+    // A dead end is still part of the world, so it is dressed as one: the
+    // night sky, the name, what was being looked for, and a way on. It used
+    // to be one grey sentence and a link that looked like text.
+    final palette = LightingPalette.of(SceneLighting.night);
     return ColoredBox(
-      color: const Color(0xFF17253C),
+      color: palette.skyMid,
       child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              message ?? 'There is nothing here yet.',
-              style: Type.bodyLg.copyWith(color: Colors.white),
-            ),
-            const SizedBox(height: 16),
-            TextButton(
-              onPressed: onHome,
-              child: Text(
-                'Back to the world',
-                style: Type.label.copyWith(color: const Color(0xFF6FE3A0)),
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Gyan Upadhyay',
+                style: Type.labelSm.copyWith(
+                  color: palette.onPanelMuted,
+                  letterSpacing: 1.4,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 20),
+              Text(
+                message ?? 'There is nothing here yet.',
+                textAlign: TextAlign.center,
+                style: Type.displayMd.copyWith(
+                  color: palette.onPanel,
+                  fontSize: 34,
+                ),
+              ),
+              const SizedBox(height: 12),
+              // The address, so a mistyped or stale link is obvious.
+              Text(
+                Uri.base.fragment.isEmpty ? '/' : Uri.base.fragment,
+                textAlign: TextAlign.center,
+                style: Type.monoValue.copyWith(
+                  color: palette.onPanelMuted,
+                  fontSize: 15,
+                ),
+              ),
+              const SizedBox(height: 28),
+              PillButton(
+                label: homeLabel ?? 'Back to the world',
+                onPressed: onHome,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 22,
+                  vertical: 13,
+                ),
+                textStyle: Type.labelSm,
+              ),
+            ],
+          ),
         ),
       ),
     );

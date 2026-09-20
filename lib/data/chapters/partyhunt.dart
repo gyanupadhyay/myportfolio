@@ -34,7 +34,7 @@ const partyhuntChapter = Chapter(
           'depended on.\n'
           'If they were wrong, nothing downstream mattered.',
       progressLabel: 'Creating…',
-      progressResult: 'core',
+      progressResult: 'critical',
       accent: 'The features everything\nelse hangs off.',
     ),
     StoryBeat(

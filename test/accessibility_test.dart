@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myportfolio/app/theme/lighting.dart';
+import 'package:myportfolio/scenes/arrival/arrival_scene.dart';
+import 'package:myportfolio/scenes/journey/journey_scene.dart';
 
 /// Relative luminance, per WCAG 2.1.
 double _luminance(Color c) {
@@ -28,6 +30,42 @@ double contrast(Color a, Color b) {
 Color _over(Color fg, Color bg) => Color.alphaBlend(fg, bg);
 
 void main() {
+  // The palette's world-copy contrast is measured *with* the halo behind the
+  // ink — 5.8:1 and up. Without it the same pair falls to 3.9:1 on a day sky,
+  // and the landing's bio shipped exactly that way: a scene can opt out of
+  // the halo and the palette test will never notice.
+  group('world copy carries its halo', () {
+    Future<void> check(WidgetTester tester, Widget scene, String name) async {
+      await tester.binding.setSurfaceSize(const Size(1440, 861));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(MaterialApp(
+        home: Material(type: MaterialType.transparency, child: scene),
+      ));
+      await tester.pump(const Duration(seconds: 2));
+
+      final palette = LightingPalette.of(SceneLighting.day);
+      final onWorld = {palette.onWorld, palette.onWorldMuted};
+      var checked = 0;
+      for (final element in find.byType(Text).evaluate()) {
+        final text = element.widget as Text;
+        final colour = text.style?.color;
+        if (colour == null || !onWorld.contains(colour)) continue;
+        checked++;
+        expect(text.style?.shadows, isNotEmpty,
+            reason: '$name: "${text.data}" sits on the art with no halo');
+      }
+      expect(checked, greaterThan(0), reason: '$name: found no world copy');
+    }
+
+    testWidgets('the landing', (tester) async {
+      await check(tester, ArrivalScene(onNavigate: (_) {}), 'landing');
+    });
+
+    testWidgets('the map', (tester) async {
+      await check(tester, JourneyScene(onNavigate: (_) {}), 'map');
+    });
+  });
+
   group('contrast', () {
     test('body text on every panel clears WCAG AA (4.5:1)', () {
       for (final lighting in SceneLighting.values) {

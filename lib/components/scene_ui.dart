@@ -42,8 +42,12 @@ class HandwrittenAccent extends StatelessWidget {
       color: color ?? palette.onPanel,
       shadows: shadow
           ? [
+              // The palette's halo, not black: over a bright sky the ink is
+              // dark and the halo has to be light, which is the whole reason
+              // the daylit scenes used to pass `shadow: false` and lose the
+              // contrast the palette promises.
               Shadow(
-                color: Colors.black.withValues(alpha: 0.45),
+                color: palette.worldTextShadow,
                 blurRadius: 12,
                 offset: const Offset(0, 2),
               ),
@@ -239,6 +243,61 @@ class _SignPainter extends CustomPainter {
       oldDelegate.active != active || oldDelegate.arrow != arrow;
 }
 
+/// The two world controls: the light, and the ambience.
+///
+/// Extracted from [TopNav] because the bar is only mounted on two of the nine
+/// routes, and these were stranded there with it — a visitor who turned the
+/// music on in the valley then walked into a chapter had no way to turn it
+/// off again, and the light could only be changed from the two screens that
+/// happened to show a nav.
+class AmbientToggles extends StatelessWidget {
+  const AmbientToggles({
+    super.key,
+    this.composed,
+    this.color = Colors.white,
+  });
+
+  /// The light the surrounding scene was composed in, where the caller knows
+  /// it. Used only to say so in the light control's label: a scene written
+  /// for its own hour keeps it, and the control should admit that rather than
+  /// look broken.
+  final SceneLighting? composed;
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Builder(builder: (context) {
+          final dayNight = DayNightScope.maybeOf(context);
+          final night = dayNight?.isNight ?? false;
+          final acts = composed == null || DayNight.changes(composed!);
+          final going = night ? 'Switch to daylight' : 'Switch to night';
+          return _NavIcon(
+            // Show where the toggle goes, not where it is.
+            icon: night ? Icons.wb_sunny_outlined : Icons.nightlight_outlined,
+            label: acts ? going : '$going — this scene keeps its own light',
+            color: color,
+            onTap: dayNight?.toggle,
+          );
+        }),
+        Builder(builder: (context) {
+          final ambience = AmbienceScope.maybeOf(context);
+          final on = ambience?.enabled ?? false;
+          return _NavIcon(
+            icon: on ? Icons.volume_up_outlined : Icons.volume_off_outlined,
+            label: on ? 'Mute ambience' : 'Play ambience',
+            color: color,
+            onTap: ambience?.toggle,
+          );
+        }),
+      ],
+    );
+  }
+}
+
 /// The transparent top bar from frames 01–03.
 ///
 /// Five labels plus the icon cluster need roughly 700 design units; a phone's
@@ -250,9 +309,6 @@ class TopNav extends StatefulWidget {
     required this.items,
     required this.onSelect,
     required this.current,
-    this.onToggleTheme,
-    this.onToggleSound,
-    this.soundOn = false,
     this.iconsOnly = false,
   });
 
@@ -262,10 +318,6 @@ class TopNav extends StatefulWidget {
   final List<String> items;
   final ValueChanged<String> onSelect;
   final String current;
-  /// Only used when no [DayNightScope] is mounted above the bar.
-  final VoidCallback? onToggleTheme;
-  final VoidCallback? onToggleSound;
-  final bool soundOn;
 
   @override
   State<TopNav> createState() => _TopNavState();
@@ -283,31 +335,7 @@ class _TopNavState extends State<TopNav> {
     final collapse = form.isPhone && !widget.iconsOnly;
 
     final icons = [
-      // The day/night controller is the source of truth when one is in scope;
-      // the explicit prop stays for scenes built without it.
-      Builder(builder: (context) {
-        final dayNight = DayNightScope.maybeOf(context);
-        final night = dayNight?.isNight ?? false;
-        return _NavIcon(
-          // Show where the toggle goes, not where it is.
-          icon: night ? Icons.wb_sunny_outlined : Icons.nightlight_outlined,
-          label: night ? 'Switch to daylight' : 'Switch to night',
-          color: onNav,
-          onTap: dayNight == null ? widget.onToggleTheme : dayNight.toggle,
-        );
-      }),
-      // The ambience controller is the source of truth when one is in scope;
-      // the explicit props stay for scenes built without it.
-      Builder(builder: (context) {
-        final ambience = AmbienceScope.maybeOf(context);
-        final on = ambience?.enabled ?? widget.soundOn;
-        return _NavIcon(
-          icon: on ? Icons.volume_up_outlined : Icons.volume_off_outlined,
-          label: on ? 'Mute ambience' : 'Play ambience',
-          color: onNav,
-          onTap: ambience == null ? widget.onToggleSound : ambience.toggle,
-        );
-      }),
+      AmbientToggles(composed: stage.composed, color: onNav),
       _NavIcon(
         icon: Icons.person_outline,
         label: 'About Gyan',

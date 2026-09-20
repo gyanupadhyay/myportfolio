@@ -9,6 +9,8 @@ import '../../components/scene_layout.dart';
 import '../../components/scene_ui.dart';
 import '../../world/painters/character.dart';
 import '../../world/painters/landscape.dart';
+import '../../world/plate.dart';
+import '../../world/plates.g.dart';
 import '../../world/stage.dart';
 
 /// Frame 12 — Final / Contact.
@@ -27,13 +29,34 @@ class SunsetScene extends StatelessWidget {
   /// Opens an external destination — email, LinkedIn, GitHub, résumé.
   final void Function(String target) onContact;
 
+  /// Contact buttons, traced off `assets/art/sunset.webp`. Same order as the
+  /// painted row: Email, LinkedIn, GitHub, résumé.
+  static const _contacts = <({Rect rect, String label, String target})>[
+    (
+      rect: Rect.fromLTRB(117, 422, 324, 491),
+      label: 'Email',
+      target: 'mailto:gyanupadhyay19@gmail.com',
+    ),
+    (rect: Rect.fromLTRB(352, 422, 565, 491), label: 'LinkedIn', target: 'linkedin'),
+    (rect: Rect.fromLTRB(583, 422, 800, 491), label: 'GitHub', target: 'github'),
+    (rect: Rect.fromLTRB(820, 422, 1046, 491), label: 'Resume', target: 'resume'),
+  ];
+
   @override
   Widget build(BuildContext context) {
+    // On a plate the painting carries the invitation and the buttons; the
+    // scene contributes the targets over them.
+    final plate = platesOn(context);
     return WorldStage(
       lighting: SceneLighting.sunset,
       ui: SceneUi(
         leading: Reveal(child: _Back(onTap: () => onNavigate('/map'))),
-        copy: [CopySlot(
+        // The light and the ambience, reachable from here rather than only
+        // from the two screens that show a nav.
+        extras: [
+          At(right: T.s24, top: T.s24, child: AmbientToggles(composed: SceneLighting.sunset)),
+        ],
+        copy: plate ? const [] : [CopySlot(
           left: 90,
           top: 272,
           width: 920,
@@ -83,7 +106,7 @@ class SunsetScene extends StatelessWidget {
             ],
           ),
         )],
-        accents: const [
+        accents: plate ? const [] : const [
           At(
             right: 78,
             top: 78,
@@ -102,7 +125,22 @@ class SunsetScene extends StatelessWidget {
           ),
         ],
       ),
-      children: [
+      children: plate
+          ? [
+              ScenePlate(
+                art: plateSunset,
+                lighting: SceneLighting.sunset,
+                children: [
+                  for (final contact in _contacts)
+                    PlateHotspot(
+                      rect: contact.rect,
+                      label: contact.label,
+                      onTap: () => onContact(contact.target),
+                    ),
+                ],
+              ),
+            ]
+          : [
         SceneLayer(seed: 11, paint: [Landscape.sky, Landscape.sunDisc]),
 
         ParallaxLayer(

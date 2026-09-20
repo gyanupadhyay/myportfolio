@@ -7,11 +7,14 @@ import '../../app/theme/typography.dart';
 import '../../components/controls.dart';
 import '../../components/reveal.dart';
 import '../../components/scene_layout.dart';
+import '../../components/scene_ui.dart';
 import '../../data/journey.dart';
 import '../../world/painters/character.dart';
 import '../../world/painters/interior.dart';
 import '../../world/painters/landscape.dart';
 import '../../world/painters/paint_kit.dart';
+import '../../world/plate.dart';
+import '../../world/plates.g.dart';
 import '../../world/stage.dart';
 
 /// Frame 02 — The Workshop / Entry Point.
@@ -23,17 +26,35 @@ class WorkshopScene extends StatelessWidget {
 
   final void Function(String route) onNavigate;
 
+  /// The painted Explore rows, traced off `assets/art/workshop.webp`. Same
+  /// order as [workshopMenu].
+  static const _menuHotspots = <Rect>[
+    Rect.fromLTRB(1250, 516, 1595, 587),
+    Rect.fromLTRB(1250, 587, 1595, 657),
+    Rect.fromLTRB(1250, 657, 1595, 722),
+    Rect.fromLTRB(1250, 722, 1595, 790),
+    Rect.fromLTRB(1250, 790, 1595, 860),
+  ];
+
   @override
   Widget build(BuildContext context) {
+    // On a plate the painting carries the room, the board and the Explore
+    // card; the scene puts targets on the painted rows.
+    final plate = platesOn(context);
     return WorldStage(
       lighting: SceneLighting.interior,
       ui: SceneUi(
         leading: Reveal(child: _BackToWorld(onTap: () => onNavigate('/'))),
+        // The light and the ambience, reachable from here rather than only
+        // from the two screens that show a nav.
+        extras: [
+          At(right: T.s24, top: T.s24, child: AmbientToggles(composed: SceneLighting.interior)),
+        ],
         // On a phone the props the hotspots cover are mostly off-frame, so
         // the Explore menu is the only way through — it gets the full width
         // rather than a 300-unit column hugging the right edge.
         accents: [
-          At(
+          if (!plate) At(
             right: 55,
             top: 440,
             width: 300,
@@ -44,33 +65,42 @@ class WorkshopScene extends StatelessWidget {
             ),
           ),
         ],
-        compactExtras: [
-          Positioned(
-            left: T.s24,
-            right: T.s24,
-            bottom: T.s48,
-            child: Reveal(
-              delay: const Duration(milliseconds: 320),
-              child: CompactDestinationList(
-                title: 'Explore',
-                children: [
-                  for (final node in journeyNodes)
-                    CompactDestination(
-                      label: node.title,
-                      detail: node.caption,
-                      enabled: node.chapterId != null,
-                      onTap: () {
-                        final chapter = node.chapterId;
-                        if (chapter != null) onNavigate('/chapter/$chapter');
-                      },
-                    ),
-                ],
-              ),
+        compactBelow: [
+          Reveal(
+            delay: const Duration(milliseconds: 320),
+            // The same five destinations the painted card and the drawn
+            // menu offer, so the way through the workshop does not change
+            // with the viewport. Listing the journey stops here instead
+            // sent "What's Next?" to /chapter/next, which is not a chapter.
+            child: CompactDestinationList(
+              title: 'Explore',
+              children: [
+                for (final item in workshopMenu)
+                  CompactDestination(
+                    label: item.label,
+                    onTap: () => onNavigate(item.route),
+                  ),
+              ],
             ),
           ),
         ],
       ),
-      children: [
+      children: plate
+          ? [
+              ScenePlate(
+                art: plateWorkshop,
+                lighting: SceneLighting.interior,
+                children: [
+                  for (var i = 0; i < workshopMenu.length; i++)
+                    PlateHotspot(
+                      rect: _menuHotspots[i],
+                      label: workshopMenu[i].label,
+                      onTap: () => onNavigate(workshopMenu[i].route),
+                    ),
+                ],
+              ),
+            ]
+          : [
         // ------------------------------------------------------------ room
         SceneLayer(
           seed: 101,
@@ -205,15 +235,22 @@ class WorkshopScene extends StatelessWidget {
             onTap: () => onNavigate('/human'),
           ),
         ),
+        // The cat is the one prop with nothing behind it, and the tooltip is
+        // the whole joke — so it stays scenery rather than a button that a
+        // screen reader offers and a cursor promises.
         WorldAt(
           left: 0.5972,
           top: 0.7201,
           width: 0.0972,
           height: 0.1161,
-          child: _PropHotspot(
+          child: Semantics(
+            image: true,
             label: 'The cat, asleep on the desk',
-            tooltip: 'Shhh.',
-            onTap: () {},
+            child: const Tooltip(
+              message: 'Shhh.',
+              waitDuration: Duration(milliseconds: 380),
+              child: SizedBox.expand(),
+            ),
           ),
         ),
       ],

@@ -56,6 +56,11 @@ class _ObservatorySceneState extends State<ObservatoryScene> {
       lighting: SceneLighting.night,
       ui: SceneUi(
         leading: _Back(onTap: () => widget.onNavigate('/map')),
+        // The light and the ambience, reachable from here rather than only
+        // from the two screens that show a nav.
+        extras: [
+          At(right: T.s24, top: T.s24, child: AmbientToggles(composed: SceneLighting.night)),
+        ],
         trailing: Reveal(
           delay: const Duration(milliseconds: 900),
           child: PillButton(

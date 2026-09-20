@@ -20,6 +20,14 @@ enum DayNight {
       composed == SceneLighting.day && this == DayNight.night
           ? SceneLighting.night
           : composed;
+
+  /// Whether turning the key light changes anything in a scene composed as
+  /// [composed].
+  ///
+  /// Read off [apply] rather than restated, so a scene that starts or stops
+  /// following the toggle cannot leave the control describing itself wrongly.
+  static bool changes(SceneLighting composed) =>
+      day.apply(composed) != night.apply(composed);
 }
 
 /// The visitor's day/night choice, shared by every scene.

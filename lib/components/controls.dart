@@ -139,16 +139,16 @@ class SegmentedTabs extends StatelessWidget {
           ),
         ],
       ),
-      // Three labels do not fit on one phone-width line; let them stack rather
-      // than overflow the pill.
-      child: compact
-          ? Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 4,
-              runSpacing: 4,
-              children: children,
-            )
-          : Row(mainAxisSize: MainAxisSize.min, children: children),
+      // Always a wrap, never a row: three labels do not fit on one
+      // phone-width line, and they do not fit beside the panel they switch
+      // either — which is where they now sit rather than in the frame's
+      // opposite corner. A wrap that fits behaves exactly like a row.
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        spacing: 4,
+        runSpacing: 4,
+        children: children,
+      ),
     );
   }
 }

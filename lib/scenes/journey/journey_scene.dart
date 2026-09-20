@@ -16,6 +16,8 @@ import '../../data/models/chapter.dart';
 import '../../world/painters/character.dart';
 import '../../world/painters/landscape.dart';
 import '../../world/painters/paint_kit.dart';
+import '../../world/plate.dart';
+import '../../world/plates.g.dart';
 import '../../world/stage.dart';
 import 'journey_path.dart';
 
@@ -99,27 +101,34 @@ class _JourneySceneState extends State<JourneyScene>
     _walk.forward(from: 0);
   }
 
+  /// The five painted cards, traced off `assets/art/journey.webp` in its own
+  /// pixel space. Same order as [journeyNodes].
+  static const _cardHotspots = <Rect>[
+    Rect.fromLTRB(73, 471, 281, 555),
+    Rect.fromLTRB(426, 438, 616, 521),
+    Rect.fromLTRB(752, 392, 957, 476),
+    Rect.fromLTRB(1097, 312, 1300, 392),
+    Rect.fromLTRB(1410, 266, 1614, 347),
+  ];
+
   @override
   Widget build(BuildContext context) {
     // The note is written on the map itself, with no panel behind it, so its
     // ink follows the light the visitor chose.
     final palette = DayNightScope.paletteFor(context, SceneLighting.day);
+    // On a plate the painting carries the trail, the five cards and the hint;
+    // the scene contributes targets over the painted cards.
+    final plate = platesOn(context);
     return WorldStage(
       lighting: SceneLighting.day,
       ui: SceneUi(
         topBar: TopNav(
-          items: const ['Home', 'Journal', 'Map', 'Projects', 'About'],
+          items: navLabels,
           current: 'Map',
           iconsOnly: true,
-          onSelect: (item) => widget.onNavigate(switch (item) {
-            'Home' => '/',
-            'Projects' => '/chapter/fyers',
-            'Journal' => '/chapter/fyers',
-            'About' => '/human',
-            _ => '/map',
-          }),
+          onSelect: (item) => widget.onNavigate(navRouteFor(item)),
         ),
-        copy: [CopySlot(
+        copy: plate ? const [] : [CopySlot(
           left: 40,
           top: 165,
           scrim: false,
@@ -131,35 +140,29 @@ class _JourneySceneState extends State<JourneyScene>
               style: Type.handTitle,
               color: palette.onWorld,
               rotation: -0.02,
-              shadow: false,
             ),
           ),
         )],
         // Five 200-unit cards cannot be spread across a phone's trail without
         // colliding, so the map hands over to a list of the same stops.
-        compactExtras: [
-          Positioned(
-            left: T.s24,
-            right: T.s24,
-            bottom: T.s48,
-            child: Reveal(
-              delay: const Duration(milliseconds: 700),
-              child: CompactDestinationList(
-                title: 'The stops',
-                children: [
-                  for (final node in journeyNodes)
-                    CompactDestination(
-                      label: node.title,
-                      detail: node.caption,
-                      enabled: node.chapterId != null,
-                      onTap: () => _open(node),
-                    ),
-                ],
-              ),
+        compactBelow: [
+          Reveal(
+            delay: const Duration(milliseconds: 700),
+            child: CompactDestinationList(
+              title: 'The stops',
+              children: [
+                for (final node in journeyNodes)
+                  CompactDestination(
+                    label: node.title,
+                    detail: node.caption,
+                    enabled: node.chapterId != null,
+                    onTap: () => _open(node),
+                  ),
+              ],
             ),
           ),
         ],
-        footer: Reveal(
+        footer: plate ? null : Reveal(
           delay: const Duration(milliseconds: 900),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -184,7 +187,22 @@ class _JourneySceneState extends State<JourneyScene>
           ),
         ),
       ),
-      children: [
+      children: plate
+          ? [
+              ScenePlate(
+                art: plateJourney,
+                lighting: SceneLighting.day,
+                children: [
+                  for (var i = 0; i < journeyNodes.length; i++)
+                    PlateHotspot(
+                      rect: _cardHotspots[i],
+                      label: '${journeyNodes[i].title} — ${journeyNodes[i].caption}',
+                      onTap: () => _open(journeyNodes[i]),
+                    ),
+                ],
+              ),
+            ]
+          : [
         SceneLayer(seed: 11, paint: [Landscape.sky]),
 
         ParallaxLayer(

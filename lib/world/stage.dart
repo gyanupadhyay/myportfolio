@@ -29,6 +29,7 @@ class StageState {
     required this.pointer,
     required this.reduced,
     required this.lighting,
+    required this.composed,
     required this.size,
     required this.form,
     required this.viewport,
@@ -45,7 +46,18 @@ class StageState {
   final Offset pointer;
 
   final bool reduced;
+
+  /// The light this scene is actually rendering in, after the visitor's
+  /// day/night choice has been applied.
   final SceneLighting lighting;
+
+  /// The light the scene was *composed* in, before that choice.
+  ///
+  /// Kept alongside [lighting] because the two are not recoverable from each
+  /// other: a scene written for the night and a daylight scene the visitor
+  /// turned down both resolve to `night`, and only the second one is
+  /// something the toggle did.
+  final SceneLighting composed;
 
   /// The art box, in world design units. Its aspect ratio tracks the viewport
   /// so scenes are not cropped; position art against it in fractions, or with
@@ -257,6 +269,7 @@ class _WorldStageState extends State<WorldStage>
           pointer: _pointer,
           reduced: reduced,
           lighting: lighting,
+          composed: widget.lighting,
           size: artBox,
           form: form,
           viewport: viewport,

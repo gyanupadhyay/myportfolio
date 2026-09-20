@@ -50,7 +50,12 @@ const fyersChapter = Chapter(
         Metric(label: 'Product collaboration', value: 'yes'),
         Metric(label: 'QA collaboration', value: 'yes'),
         Metric(label: 'Design collaboration', value: 'yes'),
-        Metric(label: 'Defined timeline', value: 'met', emphasis: true),
+        Metric(
+          label: 'Defined timeline',
+          value: 'met',
+          emphasis: true,
+          tone: MetricTone.good,
+        ),
       ],
       boardLines: ['Ship the module', 'Then make it fast'],
     ),

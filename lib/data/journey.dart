@@ -42,12 +42,36 @@ const journeyNodes = <JourneyNode>[
   ),
 ];
 
+/// The top bar's destinations, in order.
+///
+/// One list, used by every scene that shows the bar, because the bar used to
+/// be written out per scene: both copies offered "Journal" and "Projects" and
+/// sent them to the same chapter, "Journal" was not a place this site has,
+/// and the contact scene — the one thing a visitor might actually be looking
+/// for — could not be reached from the bar at all.
+const navItems = <({String label, String route})>[
+  (label: 'Home', route: '/'),
+  (label: 'Map', route: '/map'),
+  (label: 'Projects', route: '/chapter/fyers'),
+  (label: 'Ideas', route: '/observatory'),
+  (label: 'About', route: '/human'),
+  (label: 'Contact', route: '/sunset'),
+];
+
+/// The labels, for [navItems]-driven bars.
+List<String> get navLabels => [for (final item in navItems) item.label];
+
+/// Where a bar label goes. Unknown labels fall back to the world.
+String navRouteFor(String label) => navItems
+    .firstWhere((item) => item.label == label, orElse: () => navItems.first)
+    .route;
+
 /// Frame 02 — the Explore menu.
 const workshopMenu = <({String label, String route})>[
   (label: 'My Journey', route: '/map'),
-  (label: 'Portfolio module', route: '/chapter/fyers'),
+  (label: 'Projects', route: '/chapter/fyers'),
   (label: 'Engineering', route: '/chapter/fyers/deepdive'),
-  (label: 'Projects', route: '/observatory'),
+  (label: 'AI Experiments', route: '/observatory'),
   (label: 'About Me', route: '/human'),
 ];
 

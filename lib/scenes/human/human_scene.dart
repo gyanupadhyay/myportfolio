@@ -15,6 +15,8 @@ import '../../world/painters/interior.dart';
 import '../../world/painters/landscape.dart';
 import '../../components/panels.dart';
 import '../../world/painters/paint_kit.dart';
+import '../../world/plate.dart';
+import '../../world/plates.g.dart';
 import '../../world/stage.dart';
 
 /// Frame 11 — Personal Side.
@@ -28,10 +30,18 @@ class HumanScene extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // On a plate the painting carries the note, the polaroids and the
+    // notebook; only the back link and the way onward stay live.
+    final plate = platesOn(context);
     return WorldStage(
       lighting: SceneLighting.interior,
       ui: SceneUi(
         leading: _Back(onTap: () => onNavigate('/map')),
+        // The light and the ambience, reachable from here rather than only
+        // from the two screens that show a nav.
+        extras: [
+          At(right: T.s24, top: T.s24, child: AmbientToggles(composed: SceneLighting.interior)),
+        ],
         trailing: Reveal(
           delay: const Duration(milliseconds: 900),
           child: PillButton(
@@ -40,7 +50,7 @@ class HumanScene extends StatelessWidget {
           ),
         ),
         // The reference sets this copy on a paper sheet, not loose on wood.
-        copy: [CopySlot(
+        copy: plate ? const [] : [CopySlot(
           left: 175,
           top: 140,
           width: 545,
@@ -80,7 +90,14 @@ class HumanScene extends StatelessWidget {
           ),
         )],
       ),
-      children: [
+      children: plate
+          ? [
+              ScenePlate(
+                art: plateHuman,
+                lighting: SceneLighting.interior,
+              ),
+            ]
+          : [
         // A warm table top seen from above.
         SceneLayer(seed: 401, repaintOnTime: false, paint: [_tableTop]),
         SceneLayer(seed: 403, repaintOnTime: false, paint: [_artifacts]),
@@ -108,7 +125,6 @@ class HumanScene extends StatelessWidget {
           child: _Artifact(
             label: 'Cricket — a photo from the field',
             tooltip: 'Cricket',
-            onTap: () {},
           ),
         ),
         WorldAt(
@@ -119,7 +135,6 @@ class HumanScene extends StatelessWidget {
           child: _Artifact(
             label: 'Travel — a photo from the mountains',
             tooltip: 'Travel',
-            onTap: () {},
           ),
         ),
         WorldAt(
@@ -130,7 +145,6 @@ class HumanScene extends StatelessWidget {
           child: _Artifact(
             label: 'Books — what I am reading',
             tooltip: 'Books',
-            onTap: () {},
           ),
         ),
         WorldAt(
@@ -141,7 +155,6 @@ class HumanScene extends StatelessWidget {
           child: _Artifact(
             label: 'Music — the guitar in the corner',
             tooltip: 'Music',
-            onTap: () {},
           ),
         ),
         WorldAt(
@@ -152,7 +165,6 @@ class HumanScene extends StatelessWidget {
           child: _Artifact(
             label: 'Notebook — Better, Build, Explore, Repeat',
             tooltip: 'The list I keep coming back to',
-            onTap: () {},
           ),
         ),
         WorldAt(
@@ -163,7 +175,6 @@ class HumanScene extends StatelessWidget {
           child: _Artifact(
             label: 'World map — places I have been',
             tooltip: 'Travel map',
-            onTap: () {},
           ),
         ),
       ],
@@ -475,24 +486,45 @@ class HumanScene extends StatelessWidget {
   }
 }
 
-class _Artifact extends StatelessWidget {
-  const _Artifact({
-    required this.label,
-    required this.tooltip,
-    required this.onTap,
-  });
+/// One of the painted objects on the desk.
+///
+/// These lift and glow under the pointer because the desk should feel alive,
+/// but there is nothing behind them to open. So they are scenery: no button
+/// role, no click cursor, no place in the tab order. Announcing them as
+/// buttons and doing nothing was worse than leaving them quiet — a screen
+/// reader counted six controls that could not be activated, and the cursor
+/// promised a page that does not exist.
+class _Artifact extends StatefulWidget {
+  const _Artifact({required this.label, required this.tooltip});
 
   final String label;
   final String tooltip;
-  final VoidCallback onTap;
+
+  @override
+  State<_Artifact> createState() => _ArtifactState();
+}
+
+class _ArtifactState extends State<_Artifact> {
+  bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
-    return Hotspot(
-      label: label,
-      tooltip: tooltip,
-      onActivate: onTap,
-      builder: (context, active) => AnimatedContainer(
+    return Semantics(
+      image: true,
+      label: widget.label,
+      child: Tooltip(
+        message: widget.tooltip,
+        waitDuration: const Duration(milliseconds: 380),
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _hovered = true),
+          onExit: (_) => setState(() => _hovered = false),
+          child: _lift(context, _hovered),
+        ),
+      ),
+    );
+  }
+
+  Widget _lift(BuildContext context, bool active) => AnimatedContainer(
         duration: motionDuration(context, T.dFast),
         curve: T.eOut,
         transform: Matrix4.translationValues(0, active ? -6 : 0, 0),
@@ -512,9 +544,7 @@ class _Artifact extends StatelessWidget {
                 ]
               : null,
         ),
-      ),
-    );
-  }
+      );
 }
 
 class _Back extends StatelessWidget {

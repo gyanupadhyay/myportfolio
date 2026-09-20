@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:myportfolio/components/panels.dart';
+import 'package:myportfolio/components/scene_layout.dart';
 import 'package:myportfolio/data/chapters/fyers.dart';
 import 'package:myportfolio/scenes/arrival/arrival_scene.dart';
 import 'package:myportfolio/scenes/chapter/chapter_scene.dart';
@@ -149,7 +150,53 @@ void main() {
         (tester) async {
       await pumpAt(tester, entry.value, sceneFor('sunset'));
       for (final label in ['Email', 'LinkedIn', 'GitHub', 'Resume']) {
-        expectOnScreen(tester, find.text(label), entry.value);
+        // On a painted plate the label is in the artwork and the action is a
+        // hotspot over it, so look for either.
+        expectOnScreen(
+          tester,
+          find.byWidgetPredicate(
+            (w) => (w is Text && w.data == label) ||
+                (w is Semantics && w.properties.label == label),
+          ),
+          entry.value,
+        );
+      }
+    });
+  }
+
+  /// The compact list stands in for art a phone cannot show, so it has to sit
+  /// *under* the copy — floating it over the scene covered the headline, the
+  /// name and the CTA on the landing.
+  ///
+  /// The value is a line of that scene's own copy the list must not cover, or
+  /// null for a scene whose only text on a phone is the list's own.
+  for (final entry in <String, String?>{
+    'arrival': 'Begin the Journey',
+    'journey': null,
+    'workshop': null,
+  }.entries) {
+    testWidgets('phone: ${entry.key} keeps its list in the band',
+        (tester) async {
+      const size = Size(390, 844);
+      await pumpAt(tester, size, sceneFor(entry.key));
+
+      final list = find.byType(CompactDestinationList);
+      expect(list, findsOneWidget);
+      expectOnScreen(tester, list, size);
+
+      for (final card in find.byType(CompactDestination).evaluate()) {
+        final rect = tester.getRect(find.byWidget(card.widget));
+        expect(rect.left, greaterThanOrEqualTo(-0.5),
+            reason: 'a destination runs off the left edge');
+        expect(rect.right, lessThanOrEqualTo(size.width + 0.5),
+            reason: 'a destination runs off the right edge');
+      }
+
+      if (entry.value case final line?) {
+        final listRect = tester.getRect(list);
+        final covered = find.text(line).evaluate().where((e) =>
+            tester.getRect(find.byWidget(e.widget)).overlaps(listRect));
+        expect(covered, isEmpty, reason: '"$line" is covered by the list');
       }
     });
   }

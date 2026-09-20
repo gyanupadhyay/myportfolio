@@ -51,7 +51,12 @@ const bosswallahChapter = Chapter(
         Metric(label: 'Dependency conflicts', value: 'resolve'),
         Metric(label: 'Deprecated APIs in use', value: 'replace'),
         Metric(label: 'Outdated components', value: 'refactor'),
-        Metric(label: 'Flutter 3.24 → 3.35.0', value: 'go', emphasis: true),
+        Metric(
+          label: 'Flutter 3.24 → 3.35.0',
+          value: 'go',
+          emphasis: true,
+          tone: MetricTone.good,
+        ),
       ],
       boardLines: ['One at a time', 'Keep it green', 'Ship on Friday'],
     ),

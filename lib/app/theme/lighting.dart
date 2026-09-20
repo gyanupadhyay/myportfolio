@@ -24,6 +24,7 @@ class LightingPalette {
     required this.onWorld,
     required this.onWorldMuted,
     required this.worldTextShadow,
+    required this.worldScrim,
     required this.accent,
     required this.glow,
     required this.sunPosition,
@@ -54,6 +55,13 @@ class LightingPalette {
   /// dark ink, a dark one under light.
   final Color worldTextShadow;
 
+  /// The veil a painted plate lays under its copy — see `PlateScrim`.
+  ///
+  /// It has to move with [onWorld]: a cream veil under the daylight's dark
+  /// ink, a dark one under the pale ink every other light uses. Held together
+  /// here because the two are only ever legible as a pair.
+  final Color worldScrim;
+
   final Color accent;
   final Color glow;
 
@@ -76,6 +84,7 @@ class LightingPalette {
     onWorld: Color(0xFF1F2E3D),
     onWorldMuted: Color(0xFF2E3E4E),
     worldTextShadow: Color(0x66FFFFFF),
+    worldScrim: Color(0xFFFFF6E6),
     accent: T.metricBlue,
     glow: T.successGlow,
     sunPosition: Offset(0.74, 0.16),
@@ -95,6 +104,7 @@ class LightingPalette {
     onWorld: Color(0xFFF6F1EA),
     onWorldMuted: Color(0xFFDCD2C6),
     worldTextShadow: Color(0x99000000),
+    worldScrim: Color(0xFF2A1F33),
     accent: T.metricBlue,
     glow: T.lampGlow,
     sunPosition: Offset(0.2, 0.62),
@@ -114,6 +124,7 @@ class LightingPalette {
     onWorld: Color(0xFFE9EFF7),
     onWorldMuted: Color(0xFFB7C5D8),
     worldTextShadow: Color(0xAA000000),
+    worldScrim: Color(0xFF0B1424),
     accent: T.metricBlue,
     glow: T.lampGlow,
     sunPosition: Offset(0.62, 0.22),
@@ -135,6 +146,7 @@ class LightingPalette {
     onWorld: Color(0xFF2E2A33),
     onWorldMuted: Color(0xFF453E48),
     worldTextShadow: Color(0x99FFFFFF),
+    worldScrim: Color(0xFFFFE9CF),
     accent: T.sunDisc,
     glow: T.sunDisc,
     sunPosition: Offset(0.58, 0.44),
@@ -154,6 +166,7 @@ class LightingPalette {
     onWorld: Color(0xFFF3E6D2),
     onWorldMuted: Color(0xFFC3AE92),
     worldTextShadow: Color(0xAA000000),
+    worldScrim: Color(0xFF1E1610),
     accent: T.lampGlow,
     glow: T.lampGlow,
     sunPosition: Offset(0.44, 0.3),

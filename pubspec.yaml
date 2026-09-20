@@ -24,6 +24,9 @@ flutter:
 
   assets:
     - assets/resume.pdf
+    # Painted scene plates. Only the scenes built with `--dart-define=PLATES`
+    # read these; see lib/world/plate.dart.
+    - assets/art/
     # Synthesised by tool/generate_ambience.py. Fetched only when the visitor
     # turns ambience on, never as part of the initial load.
     - assets/audio/
